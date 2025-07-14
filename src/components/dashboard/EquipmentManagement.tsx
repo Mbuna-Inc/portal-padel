@@ -1,139 +1,93 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
-import { Package, Plus, Edit, Trash2, DollarSign } from "lucide-react";
-import { toast } from "sonner";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { 
+  Package, 
+  Search, 
+  Filter, 
+  Edit, 
+  Trash2,
+  Plus,
+  CheckCircle,
+  AlertTriangle,
+  DollarSign
+} from "lucide-react";
 
 export const EquipmentManagement = () => {
-  const [equipment, setEquipment] = useState([
+  const [equipment] = useState([
     {
       id: "1",
-      name: "Tennis Racket - Pro",
-      price_per_unit: 15.00,
+      name: "Tennis Racket",
+      price_per_unit: 2500,
       image_url: "/placeholder.svg",
-      description: "Professional tennis racket suitable for all skill levels",
-      category: "Tennis",
-      available_quantity: 12,
-      total_quantity: 15
+      stock: 15,
+      category: "rackets",
+      status: "available"
     },
     {
-      id: "2",
-      name: "Basketball",
-      price_per_unit: 8.00,
+      id: "2", 
+      name: "Tennis Balls (Set of 3)",
+      price_per_unit: 800,
       image_url: "/placeholder.svg",
-      description: "Official size basketball for indoor and outdoor play",
-      category: "Basketball",
-      available_quantity: 20,
-      total_quantity: 25
+      stock: 25,
+      category: "balls",
+      status: "available"
     },
     {
       id: "3",
-      name: "Tennis Balls (Set of 3)",
-      price_per_unit: 5.00,
-      image_url: "/placeholder.svg",
-      description: "Professional tennis balls, set of 3",
-      category: "Tennis",
-      available_quantity: 8,
-      total_quantity: 10
+      name: "Court Shoes",
+      price_per_unit: 12000,
+      image_url: "/placeholder.svg", 
+      stock: 8,
+      category: "shoes",
+      status: "low_stock"
     },
     {
       id: "4",
-      name: "Badminton Racket",
-      price_per_unit: 12.00,
+      name: "Water Bottle",
+      price_per_unit: 1500,
       image_url: "/placeholder.svg",
-      description: "Lightweight badminton racket for recreational play",
-      category: "Badminton",
-      available_quantity: 6,
-      total_quantity: 8
+      stock: 0,
+      category: "accessories", 
+      status: "out_of_stock"
     },
+    {
+      id: "5",
+      name: "Towel",
+      price_per_unit: 1200,
+      image_url: "/placeholder.svg",
+      stock: 20,
+      category: "accessories",
+      status: "available"
+    }
   ]);
 
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingEquipment, setEditingEquipment] = useState(null);
-  const [formData, setFormData] = useState({
-    name: "",
-    price_per_unit: "",
-    description: "",
-    category: "",
-    total_quantity: "",
+  const [searchTerm, setSearchTerm] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+
+  const filteredEquipment = equipment.filter(item => {
+    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = categoryFilter === "all" || item.category === categoryFilter;
+    const matchesStatus = statusFilter === "all" || item.status === statusFilter;
+    
+    return matchesSearch && matchesCategory && matchesStatus;
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    const equipmentData = {
-      ...formData,
-      price_per_unit: parseFloat(formData.price_per_unit),
-      total_quantity: parseInt(formData.total_quantity),
-      available_quantity: parseInt(formData.total_quantity), // New equipment is fully available
-      image_url: "/placeholder.svg",
-    };
-
-    if (editingEquipment) {
-      setEquipment(equipment.map(item => 
-        item.id === editingEquipment.id 
-          ? { ...item, ...equipmentData, available_quantity: item.available_quantity }
-          : item
-      ));
-      toast.success("Equipment updated successfully!");
-    } else {
-      setEquipment([...equipment, { 
-        ...equipmentData, 
-        id: Date.now().toString() 
-      }]);
-      toast.success("Equipment added successfully!");
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "available":
+        return "bg-green-100 text-green-800";
+      case "low_stock":
+        return "bg-orange-100 text-orange-800";
+      case "out_of_stock":
+        return "bg-red-100 text-red-800";
+      default:
+        return "bg-gray-100 text-gray-800";
     }
-
-    resetForm();
-  };
-
-  const resetForm = () => {
-    setFormData({
-      name: "",
-      price_per_unit: "",
-      description: "",
-      category: "",
-      total_quantity: "",
-    });
-    setEditingEquipment(null);
-    setIsDialogOpen(false);
-  };
-
-  const handleEdit = (item) => {
-    setEditingEquipment(item);
-    setFormData({
-      name: item.name,
-      price_per_unit: item.price_per_unit.toString(),
-      description: item.description,
-      category: item.category,
-      total_quantity: item.total_quantity.toString(),
-    });
-    setIsDialogOpen(true);
-  };
-
-  const handleDelete = (equipmentId: string) => {
-    setEquipment(equipment.filter(item => item.id !== equipmentId));
-    toast.success("Equipment deleted successfully!");
-  };
-
-  const getAvailabilityColor = (available: number, total: number) => {
-    const ratio = available / total;
-    if (ratio > 0.7) return "text-green-600";
-    if (ratio > 0.3) return "text-yellow-600";
-    return "text-red-600";
-  };
-
-  const getAvailabilityBadge = (available: number, total: number) => {
-    const ratio = available / total;
-    if (ratio > 0.7) return "bg-green-100 text-green-800";
-    if (ratio > 0.3) return "bg-yellow-100 text-yellow-800";
-    return "bg-red-100 text-red-800";
   };
 
   return (
@@ -144,95 +98,13 @@ export const EquipmentManagement = () => {
           <h1 className="text-3xl font-bold text-gray-900">Equipment Management</h1>
           <p className="text-gray-600 mt-1">Manage rental equipment and inventory</p>
         </div>
-        
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-blue-600 hover:bg-blue-700">
-              <Plus className="mr-2 h-4 w-4" />
-              Add Equipment
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>
-                {editingEquipment ? "Edit Equipment" : "Add New Equipment"}
-              </DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Equipment Name</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({...formData, name: e.target.value})}
-                  placeholder="e.g., Tennis Racket - Pro"
-                  required
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="category">Category</Label>
-                <Input
-                  id="category"
-                  value={formData.category}
-                  onChange={(e) => setFormData({...formData, category: e.target.value})}
-                  placeholder="e.g., Tennis"
-                  required
-                />
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="price">Price per Unit</Label>
-                  <Input
-                    id="price"
-                    type="number"
-                    step="0.01"
-                    value={formData.price_per_unit}
-                    onChange={(e) => setFormData({...formData, price_per_unit: e.target.value})}
-                    placeholder="15.00"
-                    required
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="quantity">Total Quantity</Label>
-                  <Input
-                    id="quantity"
-                    type="number"
-                    value={formData.total_quantity}
-                    onChange={(e) => setFormData({...formData, total_quantity: e.target.value})}
-                    placeholder="15"
-                    required
-                  />
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) => setFormData({...formData, description: e.target.value})}
-                  placeholder="Brief description of the equipment"
-                  rows={3}
-                />
-              </div>
-              
-              <div className="flex space-x-2 pt-4">
-                <Button type="submit" className="flex-1">
-                  {editingEquipment ? "Update Equipment" : "Add Equipment"}
-                </Button>
-                <Button type="button" variant="outline" onClick={resetForm}>
-                  Cancel
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
+        <Button className="bg-blue-600 hover:bg-blue-700">
+          <Plus className="mr-2 h-4 w-4" />
+          Add Equipment
+        </Button>
       </div>
 
-      {/* Stats */}
+      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-4">
@@ -250,26 +122,12 @@ export const EquipmentManagement = () => {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total Inventory</p>
-                <p className="text-2xl font-bold">
-                  {equipment.reduce((sum, item) => sum + item.total_quantity, 0)}
-                </p>
-              </div>
-              <Package className="h-8 w-8 text-green-600" />
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Available</p>
+                <p className="text-sm text-gray-600">In Stock</p>
                 <p className="text-2xl font-bold text-green-600">
-                  {equipment.reduce((sum, item) => sum + item.available_quantity, 0)}
+                  {equipment.filter(e => e.status === "available").length}
                 </p>
               </div>
-              <Package className="h-8 w-8 text-green-600" />
+              <CheckCircle className="h-8 w-8 text-green-600" />
             </div>
           </CardContent>
         </Card>
@@ -278,94 +136,155 @@ export const EquipmentManagement = () => {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">In Use</p>
+                <p className="text-sm text-gray-600">Low Stock</p>
                 <p className="text-2xl font-bold text-orange-600">
-                  {equipment.reduce((sum, item) => sum + (item.total_quantity - item.available_quantity), 0)}
+                  {equipment.filter(e => e.status === "low_stock").length}
                 </p>
               </div>
-              <Package className="h-8 w-8 text-orange-600" />
+              <AlertTriangle className="h-8 w-8 text-orange-600" />
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Total Value</p>
+                <p className="text-2xl font-bold text-purple-600">
+                  MK {equipment.reduce((sum, item) => sum + (item.price_per_unit * item.stock), 0).toLocaleString()}
+                </p>
+              </div>
+              <DollarSign className="h-8 w-8 text-purple-600" />
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Equipment Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {equipment.map((item) => (
-          <Card key={item.id} className="border-0 shadow-md hover:shadow-lg transition-shadow">
-            <div className="aspect-video bg-gray-200 rounded-t-lg flex items-center justify-center">
-              <Package className="h-8 w-8 text-gray-400" />
+      {/* Filters */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Search by name..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
             </div>
             
-            <CardHeader className="pb-3">
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <CardTitle className="text-lg">{item.name}</CardTitle>
-                  <Badge variant="outline" className="mt-1 text-xs">
-                    {item.category}
+            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <SelectTrigger className="w-[140px]">
+                <Filter className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Categories</SelectItem>
+                <SelectItem value="rackets">Rackets</SelectItem>
+                <SelectItem value="balls">Balls</SelectItem>
+                <SelectItem value="shoes">Shoes</SelectItem>
+                <SelectItem value="accessories">Accessories</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[140px]">
+                <Filter className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="available">Available</SelectItem>
+                <SelectItem value="low_stock">Low Stock</SelectItem>
+                <SelectItem value="out_of_stock">Out of Stock</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Equipment Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {filteredEquipment.map((item) => (
+          <Card key={item.id} className="border-0 shadow-lg hover:shadow-xl transition-shadow overflow-hidden">
+            <CardHeader className="p-0">
+              <div className="relative">
+                <img 
+                  src={item.image_url} 
+                  alt={item.name}
+                  className="w-full h-48 object-cover"
+                />
+                <div className="absolute top-4 right-4">
+                  <Badge className={getStatusColor(item.status)}>
+                    {item.status.replace('_', ' ')}
                   </Badge>
-                </div>
-                <div className="flex space-x-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleEdit(item)}
-                    className="h-8 w-8 p-0"
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDelete(item.id)}
-                    className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
                 </div>
               </div>
             </CardHeader>
             
-            <CardContent className="pt-0">
-              <p className="text-sm text-gray-600 mb-4">{item.description}</p>
-              
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="flex items-center text-sm text-gray-600">
-                    <DollarSign className="h-4 w-4 mr-1" />
-                    Price per Unit
-                  </span>
-                  <span className="font-semibold text-green-600">
-                    ${item.price_per_unit.toFixed(2)}
-                  </span>
+            <CardContent className="p-6">
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900">{item.name}</h3>
+                  <p className="text-sm text-gray-500 capitalize">{item.category}</p>
                 </div>
                 
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-600">Availability</span>
-                    <span className={`font-medium ${getAvailabilityColor(item.available_quantity, item.total_quantity)}`}>
-                      {item.available_quantity} / {item.total_quantity}
-                    </span>
+                <div className="flex items-center justify-between">
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-green-600">MK {item.price_per_unit.toLocaleString()}</p>
+                    <p className="text-xs text-gray-500">per rental</p>
                   </div>
                   
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div 
-                      className="bg-green-600 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${(item.available_quantity / item.total_quantity) * 100}%` }}
-                    />
+                  <div className="text-center">
+                    <p className={`text-lg font-semibold ${
+                      item.stock === 0 ? 'text-red-600' : 
+                      item.stock < 10 ? 'text-orange-600' : 'text-blue-600'
+                    }`}>
+                      {item.stock}
+                    </p>
+                    <p className="text-xs text-gray-500">in stock</p>
                   </div>
+                </div>
+                
+                <div className="flex space-x-2">
+                  <Button size="sm" variant="outline" className="flex-1">
+                    <Edit className="h-4 w-4 mr-1" />
+                    Edit
+                  </Button>
                   
-                  <Badge className={`${getAvailabilityBadge(item.available_quantity, item.total_quantity)} w-full justify-center`}>
-                    {item.available_quantity === 0 ? "Out of Stock" : 
-                     item.available_quantity === item.total_quantity ? "Fully Available" : 
-                     "Partially Available"}
-                  </Badge>
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="flex-1 text-red-600 border-red-200 hover:bg-red-50"
+                  >
+                    <Trash2 className="h-4 w-4 mr-1" />
+                    Delete
+                  </Button>
                 </div>
               </div>
             </CardContent>
           </Card>
         ))}
       </div>
+
+      {filteredEquipment.length === 0 && (
+        <Card>
+          <CardContent className="p-12 text-center">
+            <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No equipment found</h3>
+            <p className="text-gray-500">
+              {searchTerm || categoryFilter !== "all" || statusFilter !== "all"
+                ? "Try adjusting your search or filter criteria."
+                : "No equipment has been added yet."
+              }
+            </p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };
