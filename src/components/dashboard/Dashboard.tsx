@@ -51,7 +51,9 @@ export const Dashboard = ({ user, onLogout }: DashboardProps) => {
       </div>
 
       {/* Sidebar */}
-      <div className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 fixed lg:static inset-y-0 left-0 z-40 w-64 transition-transform duration-300 ease-in-out`}>
+      <div className={`${
+        sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+      } lg:translate-x-0 fixed lg:static inset-y-0 left-0 z-40 w-64 transition-transform duration-300 ease-in-out lg:transition-none`}>
         <Sidebar
           user={user}
           activeTab={activeTab}
@@ -71,7 +73,7 @@ export const Dashboard = ({ user, onLogout }: DashboardProps) => {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 p-6">
+        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 p-4 lg:p-6 pt-16 lg:pt-6">
           {renderContent()}
         </main>
       </div>

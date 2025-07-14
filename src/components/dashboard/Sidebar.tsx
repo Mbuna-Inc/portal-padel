@@ -11,6 +11,7 @@ import {
   LogOut,
   User,
   BookOpen,
+  X,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -27,7 +28,7 @@ export const Sidebar = ({ user, activeTab, setActiveTab, onLogout, onClose }: Si
     { id: "courts", label: "Courts", icon: MapPin, roles: ["admin", "member"] },
     { id: "bookings", label: user.role === "admin" ? "All Bookings" : "My Bookings", icon: Calendar, roles: ["admin", "member"] },
     { id: "equipment", label: "Equipment", icon: Package, roles: ["admin", "member"] },
-    { id: "users", label: "Users", icon: Users, roles: ["admin"] },
+    { id: "users", label: "User Management", icon: Users, roles: ["admin"] },
   ];
 
   const handleMenuClick = (tabId: string) => {
@@ -37,6 +38,18 @@ export const Sidebar = ({ user, activeTab, setActiveTab, onLogout, onClose }: Si
 
   return (
     <div className="bg-white h-full shadow-lg flex flex-col">
+      {/* Mobile Close Button */}
+      <div className="lg:hidden flex justify-end p-4">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onClose}
+          className="text-gray-500 hover:text-gray-700"
+        >
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
+
       {/* Header */}
       <div className="p-6 border-b">
         <div className="flex items-center space-x-3">
@@ -78,7 +91,7 @@ export const Sidebar = ({ user, activeTab, setActiveTab, onLogout, onClose }: Si
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-4">
+      <nav className="flex-1 p-4 overflow-y-auto">
         <ul className="space-y-2">
           {menuItems
             .filter(item => item.roles.includes(user.role))
@@ -93,8 +106,8 @@ export const Sidebar = ({ user, activeTab, setActiveTab, onLogout, onClose }: Si
                   }`}
                   onClick={() => handleMenuClick(item.id)}
                 >
-                  <item.icon className="mr-3 h-4 w-4" />
-                  {item.label}
+                  <item.icon className="mr-3 h-4 w-4 flex-shrink-0" />
+                  <span className="truncate">{item.label}</span>
                 </Button>
               </li>
             ))}
@@ -108,8 +121,8 @@ export const Sidebar = ({ user, activeTab, setActiveTab, onLogout, onClose }: Si
           className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
           onClick={onLogout}
         >
-          <LogOut className="mr-3 h-4 w-4" />
-          Sign Out
+          <LogOut className="mr-3 h-4 w-4 flex-shrink-0" />
+          <span className="truncate">Sign Out</span>
         </Button>
       </div>
     </div>
