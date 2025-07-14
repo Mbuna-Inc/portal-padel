@@ -36,6 +36,12 @@ export const Sidebar = ({ user, activeTab, setActiveTab, onLogout, onClose }: Si
     onClose();
   };
 
+  // Filter menu items based on user role
+  const visibleMenuItems = menuItems.filter(item => item.roles.includes(user.role));
+
+  console.log("User role:", user.role);
+  console.log("Visible menu items:", visibleMenuItems);
+
   return (
     <div className="bg-white h-full shadow-lg flex flex-col">
       {/* Mobile Close Button */}
@@ -93,24 +99,22 @@ export const Sidebar = ({ user, activeTab, setActiveTab, onLogout, onClose }: Si
       {/* Navigation */}
       <nav className="flex-1 p-4 overflow-y-auto">
         <ul className="space-y-2">
-          {menuItems
-            .filter(item => item.roles.includes(user.role))
-            .map((item) => (
-              <li key={item.id}>
-                <Button
-                  variant={activeTab === item.id ? "secondary" : "ghost"}
-                  className={`w-full justify-start ${
-                    activeTab === item.id 
-                      ? "bg-blue-50 text-blue-700 border-blue-200" 
-                      : "hover:bg-gray-50"
-                  }`}
-                  onClick={() => handleMenuClick(item.id)}
-                >
-                  <item.icon className="mr-3 h-4 w-4 flex-shrink-0" />
-                  <span className="truncate">{item.label}</span>
-                </Button>
-              </li>
-            ))}
+          {visibleMenuItems.map((item) => (
+            <li key={item.id}>
+              <Button
+                variant={activeTab === item.id ? "secondary" : "ghost"}
+                className={`w-full justify-start ${
+                  activeTab === item.id 
+                    ? "bg-blue-50 text-blue-700 border-blue-200" 
+                    : "hover:bg-gray-50"
+                }`}
+                onClick={() => handleMenuClick(item.id)}
+              >
+                <item.icon className="mr-3 h-4 w-4 flex-shrink-0" />
+                <span className="truncate">{item.label}</span>
+              </Button>
+            </li>
+          ))}
         </ul>
       </nav>
 
