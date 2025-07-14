@@ -37,9 +37,11 @@ export const Sidebar = ({ user, activeTab, setActiveTab, onLogout, onClose }: Si
   };
 
   // Filter menu items based on user role
-  const visibleMenuItems = menuItems.filter(item => item.roles.includes(user.role));
+  const visibleMenuItems = menuItems.filter(item => item.roles.includes(user?.role || "member"));
 
-  console.log("User role:", user.role);
+  console.log("User object:", user);
+  console.log("User role:", user?.role);
+  console.log("All menu items:", menuItems);
   console.log("Visible menu items:", visibleMenuItems);
 
   return (
@@ -73,23 +75,23 @@ export const Sidebar = ({ user, activeTab, setActiveTab, onLogout, onClose }: Si
       <div className="p-4 border-b">
         <div className="flex items-center space-x-3">
           <Avatar>
-            <AvatarImage src={user.profile_image_url} />
+            <AvatarImage src={user?.profile_image_url} />
             <AvatarFallback className="bg-blue-100 text-blue-600">
-              {user.full_name.charAt(0).toUpperCase()}
+              {user?.full_name?.charAt(0)?.toUpperCase() || "U"}
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-gray-900 truncate">
-              {user.full_name}
+              {user?.full_name || "User"}
             </p>
-            <p className="text-xs text-gray-500 truncate">{user.email}</p>
+            <p className="text-xs text-gray-500 truncate">{user?.email || ""}</p>
             <div className="flex items-center mt-1">
               <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                user.role === "admin" 
+                user?.role === "admin" 
                   ? "bg-purple-100 text-purple-800" 
                   : "bg-green-100 text-green-800"
               }`}>
-                {user.role}
+                {user?.role || "member"}
               </span>
             </div>
           </div>
