@@ -5,47 +5,65 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Eye, EyeOff, Mail, Lock, User, Phone } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "../../contexts/AuthContext";
 
-interface RegisterFormProps {
-  onRegister: (userData: any) => void;
-}
-
-export const RegisterForm = ({ onRegister }: RegisterFormProps) => {
+export const RegisterForm = () => {
   const [formData, setFormData] = useState({
-    full_name: "",
+    fullName: "",
     email: "",
     phone: "",
+    location: "",
     password: "",
     confirmPassword: "",
   });
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const { register } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (formData.password !== formData.confirmPassword) {
       toast.error("Passwords don't match!");
       return;
     }
-
     setIsLoading(true);
-
-    // Simulate API call
-    setTimeout(() => {
-      const userData = {
-        id: Date.now().toString(),
+    try {
+      await register({
         email: formData.email,
-        full_name: formData.full_name,
+        password: formData.password,
+        fullName: formData.fullName,
         phone: formData.phone,
-        role: "member",
-        profile_image_url: null,
-      };
-
+        location: formData.location
+      });
       toast.success("Account created successfully!");
-      onRegister(userData);
+    } catch (error: any) {
+      console.error('Registration error:', error);
+      let errorMsg = "Failed to create account. Please try again.";
+      if (error?.code) {
+        switch (error.code) {
+          case "auth/email-already-in-use":
+            errorMsg = "Email already exists";
+            break;
+          case "auth/weak-password":
+            errorMsg = "Password should be at least 6 characters";
+            break;
+          case "auth/invalid-email":
+            errorMsg = "Invalid email address";
+            break;
+          default:
+            errorMsg = error.message || error.code;
+        }
+      } else if (error?.message) {
+        errorMsg = error.message;
+      } else if (typeof error === "string") {
+        errorMsg = error;
+      } else {
+        errorMsg = JSON.stringify(error);
+      }
+      toast.error(errorMsg);
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -58,16 +76,16 @@ export const RegisterForm = ({ onRegister }: RegisterFormProps) => {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
-        <Label htmlFor="full_name">Full Name</Label>
+        <Label htmlFor="fullName">Full Name</Label>
         <div className="relative">
           <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
           <Input
-            id="full_name"
-            name="full_name"
+            id="fullName"
+            name="fullName"
             type="text"
             required
             placeholder="Enter your full name"
-            value={formData.full_name}
+            value={formData.fullName}
             onChange={handleChange}
             className="pl-10"
           />
@@ -101,6 +119,21 @@ export const RegisterForm = ({ onRegister }: RegisterFormProps) => {
             type="tel"
             placeholder="Enter your phone number"
             value={formData.phone}
+            onChange={handleChange}
+            className="pl-10"
+          />
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="location">Location</Label>
+        <div className="relative">
+          <Input
+            id="location"
+            name="location"
+            type="text"
+            placeholder="Enter your location"
+            value={formData.location}
             onChange={handleChange}
             className="pl-10"
           />
@@ -163,4 +196,4 @@ export const RegisterForm = ({ onRegister }: RegisterFormProps) => {
       </Button>
     </form>
   );
-};
+}

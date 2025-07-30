@@ -12,12 +12,41 @@ import {
   CheckCircle,
   AlertCircle,
 } from "lucide-react";
+import { useEffect, useState, useRef } from "react";
+import { apiRequest } from "@/api/apiRequest";
 
 interface DashboardContentProps {
   user: any;
+  setActiveTab?: (tab: string) => void;
 }
 
-export const DashboardContent = ({ user }: DashboardContentProps) => {
+export const DashboardContent = ({ user, setActiveTab }: DashboardContentProps) => {
+  const [activeCourts, setActiveCourts] = useState<any[]>([]);
+  const [equipmentList, setEquipmentList] = useState<any[]>([]);
+  const [bookings, setBookings] = useState<any[]>([]);
+  const equipmentSectionRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    apiRequest("/courts").then(data => {
+      const courts = data.payload || [];
+      setActiveCourts(courts.filter((c: any) => c.isActive));
+    });
+    apiRequest("/equipment").then(data => {
+      setEquipmentList(data.payload || []);
+    });
+    apiRequest("/bookings").then(data => {
+      setBookings(data.payload || []);
+    });
+  }, []);
+
+  const handleBrowseEquipment = () => {
+    if (setActiveTab) {
+      setActiveTab('equipment');
+    } else {
+      equipmentSectionRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
   const stats = [
     {
       title: "Total Bookings",
@@ -97,22 +126,66 @@ export const DashboardContent = ({ user }: DashboardContentProps) => {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat, index) => (
-          <Card key={index} className="border-0 shadow-md hover:shadow-lg transition-shadow">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">{stat.title}</p>
-                  <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
-                  <p className="text-sm text-gray-500 mt-1">{stat.change}</p>
-                </div>
-                <div className={`${stat.bgColor} p-3 rounded-full`}>
-                  <stat.icon className={`h-6 w-6 ${stat.color}`} />
-                </div>
+        {/* Total Bookings */}
+        <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total Bookings</p>
+                <p className="text-2xl font-bold text-gray-900">{bookings.length}</p>
+                <p className="text-sm text-gray-500 mt-1">+{bookings.length}</p>
               </div>
-            </CardContent>
-          </Card>
-        ))}
+              <div className="bg-blue-50 p-3 rounded-full">
+                <Calendar className="h-6 w-6 text-blue-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        {/* Active Courts */}
+        <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Active Courts</p>
+                <p className="text-2xl font-bold text-gray-900">{activeCourts.length}</p>
+                <p className="text-sm text-gray-500 mt-1">{activeCourts.map((c: any) => c.name).join(", ") || "No active courts"}</p>
+              </div>
+              <div className="bg-green-50 p-3 rounded-full">
+                <MapPin className="h-6 w-6 text-green-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        {/* Equipment */}
+        <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Equipment</p>
+                <p className="text-2xl font-bold text-gray-900">{equipmentList.length}</p>
+                <p className="text-sm text-gray-500 mt-1">{equipmentList.map((e: any) => e.name).join(", ") || "No equipment"}</p>
+              </div>
+              <div className="bg-orange-50 p-3 rounded-full">
+                <Package className="h-6 w-6 text-orange-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        {/* Placeholder for other stats if needed */}
+        <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Upcoming</p>
+                <p className="text-2xl font-bold text-gray-900">-</p>
+                <p className="text-sm text-gray-500 mt-1">Next 7 days</p>
+              </div>
+              <div className="bg-purple-50 p-3 rounded-full">
+                <Clock className="h-6 w-6 text-purple-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Recent Activity */}
@@ -129,7 +202,7 @@ export const DashboardContent = ({ user }: DashboardContentProps) => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {recentBookings.map((booking) => (
+              {bookings.slice(0, 3).map((booking: any) => (
                 <div key={booking.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                   <div className="flex items-center space-x-3">
                     <div className={`p-2 rounded-full ${
@@ -142,12 +215,12 @@ export const DashboardContent = ({ user }: DashboardContentProps) => {
                       )}
                     </div>
                     <div>
-                      <p className="font-medium text-gray-900">{booking.court}</p>
+                      <p className="font-medium text-gray-900">{booking.court_name || booking.court}</p>
                       <p className="text-sm text-gray-500">
-                        {booking.date} at {booking.time}
+                        {booking.booking_date || booking.date} {booking.start_time ? `at ${booking.start_time}` : booking.time ? `at ${booking.time}` : ""}
                       </p>
-                      {user.role === "admin" && (
-                        <p className="text-sm text-gray-600">by {booking.user}</p>
+                      {user.role === "admin" && booking.user_name && (
+                        <p className="text-sm text-gray-600">by {booking.user_name}</p>
                       )}
                     </div>
                   </div>
@@ -179,7 +252,7 @@ export const DashboardContent = ({ user }: DashboardContentProps) => {
                 </Button>
               )}
               
-              <Button variant="outline" className="justify-start h-12">
+              <Button variant="outline" className="justify-start h-12" onClick={handleBrowseEquipment}>
                 <Package className="mr-3 h-4 w-4" />
                 Browse Equipment
               </Button>

@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,61 +7,28 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar, Clock, User, MapPin, Search, Filter, CheckCircle, XCircle, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
+import { apiRequest } from "@/api/apiRequest";
 
 export const BookingManagement = () => {
-  const [bookings] = useState([
-    {
-      id: "1",
-      user_name: "John Smith",
-      user_email: "john@example.com",
-      court_name: "Tennis Court A",
-      booking_date: "2024-07-15",
-      start_time: "10:00",
-      duration_minutes: 60,
-      status: "confirmed",
-      created_at: "2024-07-10T09:00:00Z",
-      equipment: ["Tennis Racket", "Balls"]
-    },
-    {
-      id: "2",
-      user_name: "Sarah Johnson",
-      user_email: "sarah@example.com",
-      court_name: "Basketball Court",
-      booking_date: "2024-07-16",
-      start_time: "14:00",
-      duration_minutes: 90,
-      status: "pending",
-      created_at: "2024-07-11T15:30:00Z",
-      equipment: []
-    },
-    {
-      id: "3",
-      user_name: "Mike Wilson",
-      user_email: "mike@example.com",
-      court_name: "Tennis Court B",
-      booking_date: "2024-07-17",
-      start_time: "18:00",
-      duration_minutes: 60,
-      status: "confirmed",
-      created_at: "2024-07-12T11:20:00Z",
-      equipment: ["Tennis Racket"]
-    },
-    {
-      id: "4",
-      user_name: "Emma Davis",
-      user_email: "emma@example.com",
-      court_name: "Tennis Court A",
-      booking_date: "2024-07-14",
-      start_time: "16:00",
-      duration_minutes: 60,
-      status: "cancelled",
-      created_at: "2024-07-09T14:45:00Z",
-      equipment: []
-    },
-  ]);
-
+  const [bookings, setBookings] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+
+  useEffect(() => {
+    setLoading(true);
+    setError(null);
+    apiRequest("/bookings")
+      .then((data) => {
+        setBookings(data.payload || []);
+        setLoading(false);
+      })
+      .catch((err) => {
+        setError(err.message || "Failed to load bookings");
+        setLoading(false);
+      });
+  }, []);
 
   const filteredBookings = bookings.filter(booking => {
     const matchesSearch = booking.user_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -209,7 +176,35 @@ export const BookingManagement = () => {
 
       {/* Bookings List */}
       <div className="space-y-4">
-        {filteredBookings.map((booking) => (
+        {loading && (
+          <Card>
+            <CardContent className="p-12 text-center">
+              <p className="text-gray-500">Loading bookings...</p>
+            </CardContent>
+          </Card>
+        )}
+        {error && (
+          <Card>
+            <CardContent className="p-12 text-center text-red-600">
+              <p>{error}</p>
+            </CardContent>
+          </Card>
+        )}
+        {!loading && !error && filteredBookings.length === 0 && (
+          <Card>
+            <CardContent className="p-12 text-center">
+              <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No bookings found</h3>
+              <p className="text-gray-500">
+                {searchTerm || statusFilter !== "all" 
+                  ? "Try adjusting your search or filter criteria."
+                  : "No bookings have been made yet."
+                }
+              </p>
+            </CardContent>
+          </Card>
+        )}
+        {!loading && !error && filteredBookings.length > 0 && filteredBookings.map((booking) => (
           <Card key={booking.id} className="border-0 shadow-md hover:shadow-lg transition-shadow">
             <CardContent className="p-6">
               <div className="flex flex-col lg:flex-row lg:items-center justify-between space-y-4 lg:space-y-0">
@@ -249,7 +244,7 @@ export const BookingManagement = () => {
                     <div className="flex items-center space-x-2">
                       <span className="text-sm text-gray-600">Equipment:</span>
                       <div className="flex flex-wrap gap-1">
-                        {booking.equipment.map((item, index) => (
+                        {booking.equipment.map((item: string, index: number) => (
                           <Badge key={index} variant="outline" className="text-xs">
                             {item}
                           </Badge>
@@ -298,21 +293,6 @@ export const BookingManagement = () => {
             </CardContent>
           </Card>
         ))}
-        
-        {filteredBookings.length === 0 && (
-          <Card>
-            <CardContent className="p-12 text-center">
-              <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No bookings found</h3>
-              <p className="text-gray-500">
-                {searchTerm || statusFilter !== "all" 
-                  ? "Try adjusting your search or filter criteria."
-                  : "No bookings have been made yet."
-                }
-              </p>
-            </CardContent>
-          </Card>
-        )}
       </div>
     </div>
   );

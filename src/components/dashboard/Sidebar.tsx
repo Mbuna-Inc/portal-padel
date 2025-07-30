@@ -1,7 +1,9 @@
 
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
+import { Badge as UIBadge } from "@/components/ui/badge";
 import {
   LayoutDashboard,
   MapPin,
@@ -12,6 +14,12 @@ import {
   User,
   BookOpen,
   X,
+  ChevronDown,
+  ChevronRight,
+  UserCheck,
+  CreditCard,
+  BarChart3,
+  TrendingUp,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -20,15 +28,25 @@ interface SidebarProps {
   setActiveTab: (tab: string) => void;
   onLogout: () => void;
   onClose: () => void;
+  courtCount?: number;
+  equipmentCount?: number;
+  bookingCount?: number;
 }
 
-export const Sidebar = ({ user, activeTab, setActiveTab, onLogout, onClose }: SidebarProps) => {
+export const Sidebar = ({ user, activeTab, setActiveTab, onLogout, onClose, courtCount = 0, equipmentCount = 0, bookingCount = 0 }: SidebarProps) => {
+  const [bookingsExpanded, setBookingsExpanded] = useState(false);
   const menuItems = [
-    { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["admin", "member"] },
-    { id: "courts", label: "Courts", icon: MapPin, roles: ["admin", "member"] },
-    { id: "bookings", label: user.role === "admin" ? "All Bookings" : "My Bookings", icon: Calendar, roles: ["admin", "member"] },
-    { id: "equipment", label: "Equipment", icon: Package, roles: ["admin", "member"] },
+    { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["admin", "cashier"] },
+    // Bookings will be handled separately as dropdown
+    { id: "analytics", label: "Analytics", icon: BarChart3, roles: ["admin", "cashier"] },
+    { id: "courts", label: "Courts", icon: MapPin, roles: ["admin", "cashier"], badge: courtCount },
+    { id: "equipment", label: "Equipment", icon: Package, roles: ["admin", "cashier"], badge: equipmentCount },
     { id: "users", label: "User Management", icon: Users, roles: ["admin"] },
+  ];
+
+  const bookingMenuItems = [
+    { id: "employee-bookings", label: "Employee Bookings", icon: UserCheck, roles: ["admin", "cashier"] },
+    { id: "customer-bookings", label: "Customer Bookings", icon: CreditCard, roles: ["admin", "cashier"] },
   ];
 
   const handleMenuClick = (tabId: string) => {
@@ -37,7 +55,18 @@ export const Sidebar = ({ user, activeTab, setActiveTab, onLogout, onClose }: Si
   };
 
   // Filter menu items based on user role
-  const visibleMenuItems = menuItems.filter(item => item.roles.includes(user?.role || "member"));
+  const visibleMenuItems = menuItems.filter(item => item.roles.includes(user?.role || "cashier"));
+  const visibleBookingItems = bookingMenuItems.filter(item => item.roles.includes(user?.role || "cashier"));
+
+  // Check if any booking submenu is active
+  const isBookingActive = activeTab === "employee-bookings" || activeTab === "customer-bookings";
+  
+  // Auto-expand bookings if a booking tab is active
+  React.useEffect(() => {
+    if (isBookingActive) {
+      setBookingsExpanded(true);
+    }
+  }, [isBookingActive]);
 
   console.log("User object:", user);
   console.log("User role:", user?.role);
@@ -101,22 +130,146 @@ export const Sidebar = ({ user, activeTab, setActiveTab, onLogout, onClose }: Si
       {/* Navigation */}
       <nav className="flex-1 p-4 overflow-y-auto">
         <ul className="space-y-2">
-          {visibleMenuItems.map((item) => (
-            <li key={item.id}>
+          {/* Dashboard */}
+          <li>
+            <Button
+              variant={activeTab === "dashboard" ? "secondary" : "ghost"}
+              className={`w-full justify-start ${
+                activeTab === "dashboard" 
+                  ? "bg-blue-50 text-blue-700 border-blue-200" 
+                  : "hover:bg-gray-50"
+              }`}
+              onClick={() => handleMenuClick("dashboard")}
+            >
+              <LayoutDashboard className="mr-3 h-4 w-4 flex-shrink-0" />
+              <span className="truncate">Dashboard</span>
+            </Button>
+          </li>
+          
+          {/* Bookings Dropdown */}
+          <li>
+            <Button
+              variant={isBookingActive ? "secondary" : "ghost"}
+              className={`w-full justify-start ${
+                isBookingActive 
+                  ? "bg-blue-50 text-blue-700 border-blue-200" 
+                  : "hover:bg-gray-50"
+              }`}
+              onClick={() => setBookingsExpanded(!bookingsExpanded)}
+            >
+              <Calendar className="mr-3 h-4 w-4 flex-shrink-0" />
+              <span className="truncate flex-1 text-left">Bookings</span>
+              {bookingCount > 0 && (
+                <UIBadge className="mr-2 bg-blue-600 text-white rounded-full px-2 py-0.5 text-xs font-bold">
+                  {bookingCount}
+                </UIBadge>
+              )}
+              {bookingsExpanded ? (
+                <ChevronDown className="h-4 w-4 flex-shrink-0" />
+              ) : (
+                <ChevronRight className="h-4 w-4 flex-shrink-0" />
+              )}
+            </Button>
+            
+            {/* Booking Submenu */}
+            {bookingsExpanded && (
+              <ul className="mt-2 ml-6 space-y-1">
+                {visibleBookingItems.map((subItem) => (
+                  <li key={subItem.id}>
+                    <Button
+                      variant={activeTab === subItem.id ? "secondary" : "ghost"}
+                      size="sm"
+                      className={`w-full justify-start text-sm ${
+                        activeTab === subItem.id 
+                          ? "bg-blue-100 text-blue-800" 
+                          : "hover:bg-gray-50 text-gray-600"
+                      }`}
+                      onClick={() => handleMenuClick(subItem.id)}
+                    >
+                      <subItem.icon className="mr-2 h-3 w-3 flex-shrink-0" />
+                      <span className="truncate">{subItem.label}</span>
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </li>
+          
+          {/* Analytics */}
+          <li>
+            <Button
+              variant={activeTab === "analytics" ? "secondary" : "ghost"}
+              className={`w-full justify-start ${
+                activeTab === "analytics" 
+                  ? "bg-blue-50 text-blue-700 border-blue-200" 
+                  : "hover:bg-gray-50"
+              }`}
+              onClick={() => handleMenuClick("analytics")}
+            >
+              <BarChart3 className="mr-3 h-4 w-4 flex-shrink-0" />
+              <span className="truncate">Analytics</span>
+            </Button>
+          </li>
+          
+          {/* Courts */}
+          <li>
+            <Button
+              variant={activeTab === "courts" ? "secondary" : "ghost"}
+              className={`w-full justify-start ${
+                activeTab === "courts" 
+                  ? "bg-blue-50 text-blue-700 border-blue-200" 
+                  : "hover:bg-gray-50"
+              }`}
+              onClick={() => handleMenuClick("courts")}
+            >
+              <MapPin className="mr-3 h-4 w-4 flex-shrink-0" />
+              <span className="truncate">Courts</span>
+              {courtCount > 0 && (
+                <UIBadge className="ml-2 bg-blue-600 text-white rounded-full px-2 py-0.5 text-xs font-bold">
+                  {courtCount}
+                </UIBadge>
+              )}
+            </Button>
+          </li>
+          
+          {/* Equipment */}
+          <li>
+            <Button
+              variant={activeTab === "equipment" ? "secondary" : "ghost"}
+              className={`w-full justify-start ${
+                activeTab === "equipment" 
+                  ? "bg-blue-50 text-blue-700 border-blue-200" 
+                  : "hover:bg-gray-50"
+              }`}
+              onClick={() => handleMenuClick("equipment")}
+            >
+              <Package className="mr-3 h-4 w-4 flex-shrink-0" />
+              <span className="truncate">Equipment</span>
+              {equipmentCount > 0 && (
+                <UIBadge className="ml-2 bg-blue-600 text-white rounded-full px-2 py-0.5 text-xs font-bold">
+                  {equipmentCount}
+                </UIBadge>
+              )}
+            </Button>
+          </li>
+          
+          {/* User Management (Admin only) */}
+          {user?.role === "admin" && (
+            <li>
               <Button
-                variant={activeTab === item.id ? "secondary" : "ghost"}
+                variant={activeTab === "users" ? "secondary" : "ghost"}
                 className={`w-full justify-start ${
-                  activeTab === item.id 
+                  activeTab === "users" 
                     ? "bg-blue-50 text-blue-700 border-blue-200" 
                     : "hover:bg-gray-50"
                 }`}
-                onClick={() => handleMenuClick(item.id)}
+                onClick={() => handleMenuClick("users")}
               >
-                <item.icon className="mr-3 h-4 w-4 flex-shrink-0" />
-                <span className="truncate">{item.label}</span>
+                <Users className="mr-3 h-4 w-4 flex-shrink-0" />
+                <span className="truncate">User Management</span>
               </Button>
             </li>
-          ))}
+          )}
         </ul>
       </nav>
 

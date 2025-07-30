@@ -1,32 +1,54 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Sidebar } from "./Sidebar";
 import { DashboardContent } from "./DashboardContent";
-import { CourtManagement } from "./CourtManagement";
+import { CourtsManagement } from "../courts/CourtsManagement";
 import { BookingManagement } from "./BookingManagement";
-import { EquipmentManagement } from "./EquipmentManagement";
+import { EquipmentManagement } from "../equipment/EquipmentManagement";
+import { EmployeeBookingManagement } from "../bookings/EmployeeBookingManagement";
+import { CustomerBookingManagement } from "../bookings/CustomerBookingManagement";
+import { Analytics } from "../analytics/Analytics";
 import { UserManagement } from "./UserManagement";
 import { MyBookings } from "./MyBookings";
 import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
+import { useAuth } from "../../contexts/AuthContext";
+import { getCourts } from "../../api/courtsApi";
+import { getEquipment } from "../../api/equipmentApi";
 
-interface DashboardProps {
-  user: any;
-  onLogout: () => void;
-}
-
-export const Dashboard = ({ user, onLogout }: DashboardProps) => {
+export const Dashboard = () => {
+  const { user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [courtCount, setCourtCount] = useState(0);
+  const [equipmentCount, setEquipmentCount] = useState(0);
+  const [bookingCount, setBookingCount] = useState(0);
+
+  useEffect(() => {
+    // Load court count
+    getCourts().then(courts => setCourtCount(courts.length)).catch(() => setCourtCount(0));
+    // Load equipment count
+    getEquipment().then(equipment => setEquipmentCount(equipment.length)).catch(() => setEquipmentCount(0));
+    // Load booking count
+    import('../../api/bookingsApi').then(({ getBookings }) => {
+      getBookings().then(bookings => setBookingCount(bookings.length)).catch(() => setBookingCount(0));
+    });
+  }, []);
+
+  if (!user) return null;
 
   const renderContent = () => {
     switch (activeTab) {
       case "dashboard":
         return <DashboardContent user={user} />;
       case "courts":
-        return <CourtManagement />;
-      case "bookings":
-        return user.role === "admin" ? <BookingManagement /> : <MyBookings user={user} />;
+        return <CourtsManagement />;
+      case "employee-bookings":
+        return <EmployeeBookingManagement />;
+      case "customer-bookings":
+        return <CustomerBookingManagement />;
+      case "analytics":
+        return <Analytics />;
       case "equipment":
         return <EquipmentManagement />;
       case "users":
@@ -58,8 +80,11 @@ export const Dashboard = ({ user, onLogout }: DashboardProps) => {
           user={user}
           activeTab={activeTab}
           setActiveTab={setActiveTab}
-          onLogout={onLogout}
+          onLogout={logout}
           onClose={() => setSidebarOpen(false)}
+          courtCount={courtCount}
+          equipmentCount={equipmentCount}
+          bookingCount={bookingCount}
         />
       </div>
 
@@ -74,7 +99,7 @@ export const Dashboard = ({ user, onLogout }: DashboardProps) => {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 p-4 lg:p-6 pt-16 lg:pt-6">
-          {renderContent()}
+          {activeTab === 'dashboard' ? <DashboardContent user={user} setActiveTab={setActiveTab} /> : renderContent()}
         </main>
       </div>
     </div>

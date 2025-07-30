@@ -28,6 +28,7 @@ export const UserManagement = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Fetch users on component mount
   useEffect(() => {
     loadUsers();
   }, []);
@@ -48,9 +49,10 @@ export const UserManagement = () => {
     }
   };
 
+  // Filter users based on search and role
   const filteredUsers = users.filter(user => {
-    const matchesSearch = user.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.email?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = user.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         user.email.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesRole = roleFilter === "all" || user.role === roleFilter;
     return matchesSearch && matchesRole;
   });
@@ -83,12 +85,20 @@ export const UserManagement = () => {
         password: '',
         role: ''
       });
-      await loadUsers(); // Reload users after creating
+      // Reload users after creating new one
+      await loadUsers();
     } catch (error: any) {
       toast.error(error.message || 'Failed to create user');
     } finally {
       setIsCreating(false);
     }
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
   };
 
   const handleDeleteUser = async (userId: number) => {
@@ -103,15 +113,7 @@ export const UserManagement = () => {
     }
   };
 
-  // Handle input changes for the create user form
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
+  // Add loading state UI
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -123,6 +125,7 @@ export const UserManagement = () => {
     );
   }
 
+  // Add error state UI
   if (error) {
     return (
       <Card>

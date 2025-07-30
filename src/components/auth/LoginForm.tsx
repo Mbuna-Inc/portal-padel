@@ -3,40 +3,46 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card } from "@/components/ui/card";
 import { Eye, EyeOff, Mail, Lock } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "../../contexts/AuthContext";
 
-interface LoginFormProps {
-  onLogin: (userData: any) => void;
-}
-
-export const LoginForm = ({ onLogin }: LoginFormProps) => {
+export const LoginForm = () => {
   const [formData, setFormData] = useState({
     email: "",
     password: "",
   });
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const { login } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-
-    // Simulate API call
-    setTimeout(() => {
-      const userData = {
-        id: "1",
-        email: formData.email,
-        full_name: formData.email.split('@')[0],
-        role: formData.email.includes("admin") ? "admin" : "member",
-        profile_image_url: null,
-      };
-
-      toast.success("Login successful!");
-      onLogin(userData);
+    try {
+      await login(formData.email, formData.password);
+      // Success toast is handled in the AuthContext
+    } catch (error: any) {
+      // Handle custom authentication errors
+      if (error.message.includes('User not found') || error.message.includes('inactive')) {
+        toast.error("User not found or account is inactive", { 
+          style: { color: 'red' }, 
+          duration: 5000 
+        });
+      } else if (error.message.includes('Invalid password')) {
+        toast.error("Invalid email or password", { 
+          style: { color: 'red' }, 
+          duration: 5000 
+        });
+      } else {
+        toast.error(error.message || "Login failed", { 
+          style: { color: 'red' }, 
+          duration: 5000 
+        });
+      }
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -103,11 +109,10 @@ export const LoginForm = ({ onLogin }: LoginFormProps) => {
         {isLoading ? "Signing In..." : "Sign In"}
       </Button>
 
-      <div className="text-center">
-        <Button variant="link" className="text-sm text-gray-600">
-          Forgot your password?
-        </Button>
+      <div className="text-center text-sm text-gray-600 mt-4">
+        <p>Access restricted to authorized system users only.</p>
+        <p className="mt-1">Contact your administrator for access.</p>
       </div>
     </form>
   );
-};
+}
