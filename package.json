@@ -9,8 +9,7 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
-    "start": "react-scripts start",
-    "build": "react-scripts build"
+   "start": "yarn start"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
