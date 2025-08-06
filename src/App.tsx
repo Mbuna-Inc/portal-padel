@@ -8,7 +8,6 @@ import NotFound from "./pages/NotFound";
 import Signup from "./pages/Signup";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { Dashboard } from "@/components/dashboard/Dashboard";
-import { CreateInitialUsers } from "@/components/admin/CreateInitialUsers";
 
 const queryClient = new QueryClient();
 
@@ -34,14 +33,6 @@ const App = () => (
                 <ProtectedRoute>
                   <Dashboard />
                 </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/bootstrap"
-              element={
-                <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-                  <CreateInitialUsers />
-                </div>
               }
             />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
