@@ -4,8 +4,11 @@
  * @param includeSymbol - Whether to include the MWK symbol
  * @returns Formatted currency string
  */
-export const formatMWK = (amount: number, includeSymbol: boolean = true): string => {
-  const formatted = amount.toLocaleString('en-MW', {
+export const formatMWK = (amount: number | undefined | null, includeSymbol: boolean = true): string => {
+  // Handle undefined, null, or invalid numbers
+  const safeAmount = typeof amount === 'number' && !isNaN(amount) ? amount : 0;
+  
+  const formatted = safeAmount.toLocaleString('en-MW', {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   });

@@ -15,19 +15,11 @@ export const BookingManagement = () => {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    setLoading(true);
-    setError(null);
-    apiRequest("/bookings")
-      .then((data) => {
-        setBookings(data.payload || []);
-        setLoading(false);
-      })
-      .catch((err) => {
-        setError(err.message || "Failed to load bookings");
-        setLoading(false);
-      });
+    loadBookings();
   }, []);
 
   const filteredBookings = bookings.filter(booking => {
@@ -75,14 +67,79 @@ export const BookingManagement = () => {
     return `${endHours.toString().padStart(2, '0')}:${endMins.toString().padStart(2, '0')}`;
   };
 
+  const loadBookings = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await apiRequest("/bookings");
+      setBookings(response.payload || []);
+    } catch (err: any) {
+      setError(err.message || "Failed to load bookings");
+      console.error('Error loading bookings:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateBooking = async (bookingData: any) => {
+    try {
+      setIsSubmitting(true);
+      const response = await apiRequest("/bookings/timeslot", {
+        method: "POST",
+        body: JSON.stringify(bookingData)
+      });
+      
+      if (response.success || response.isSuccessful) {
+        toast.success("Booking created successfully!");
+        await loadBookings(); // Refresh the bookings list
+        setIsBookingModalOpen(false);
+      } else {
+        throw new Error(response.message || "Failed to create booking");
+      }
+    } catch (error: any) {
+      console.error('Error creating booking:', error);
+      toast.error(error.message || "Failed to create booking");
+      throw error;
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleStatusUpdate = async (bookingId: string, newStatus: string) => {
+    try {
+      const response = await apiRequest(`/bookings/${bookingId}/status`, {
+        method: "PUT",
+        body: JSON.stringify({ status: newStatus })
+      });
+      
+      if (response.success || response.isSuccessful) {
+        toast.success(`Booking ${newStatus} successfully!`);
+        await loadBookings();
+      } else {
+        throw new Error(response.message || "Failed to update booking status");
+      }
+    } catch (error: any) {
+      console.error('Error updating booking status:', error);
+      toast.error(error.message || "Failed to update booking status");
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Booking Management</h1>
-          <p className="text-gray-600 mt-1">Manage all court bookings</p>
+          <p className="text-gray-600 mt-1">Manage all court bookings with timeslot-based system</p>
         </div>
+        <Button 
+          onClick={() => setIsBookingModalOpen(true)}
+          className="bg-blue-600 hover:bg-blue-700"
+          disabled={isSubmitting}
+        >
+          <Plus className="h-4 w-4 mr-2" />
+          Create Booking
+        </Button>
       </div>
 
       {/* Stats Cards */}

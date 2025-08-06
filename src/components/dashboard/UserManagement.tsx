@@ -1,59 +1,82 @@
-import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { toast } from 'sonner';
-import { AdminOnly } from '../auth/RoleGuard';
-import { UserPlus, Users, Search, Trash2, Edit, UserCog, Filter, CalendarDays, CreditCard, Clock, CheckCircle, Loader2 } from 'lucide-react';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { apiRequest } from "@/api/apiRequest";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
-export const UserManagement = () => {
-  const [isCreating, setIsCreating] = useState(false);
-  const [formData, setFormData] = useState({
-    fullName: '',
-    email: '',
-    password: '',
-    role: '' as 'admin' | 'cashier' | ''
-  });
+import { Users, Plus, Edit, Trash2, Search, Filter, Shield, CreditCard, Loader2, Eye, UserPlus } from "lucide-react";
+import { toast } from "sonner";
+import { useAuth } from "../../contexts/AuthContext";
+import { getUsers, createUser, updateUser, deleteUser, toggleUserStatus, type SystemUser, type CreateUserData } from "../../api/usersApi";
+
+interface UserManagementProps {
+  onDataChange?: () => void;
+}
+
+export const UserManagement = ({ onDataChange }: UserManagementProps = {}) => {
+  const { user } = useAuth();
+  const [users, setUsers] = useState<SystemUser[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<SystemUser | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [users, setUsers] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [selectedUser, setSelectedUser] = useState<SystemUser | null>(null);
+  const [showUserDetails, setShowUserDetails] = useState(false);
+
+  const [formData, setFormData] = useState({
+    fullName: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+    role: "" as "admin" | "cashier" | ""
+  });
 
   useEffect(() => {
     loadUsers();
   }, []);
 
   const loadUsers = async () => {
-    setLoading(true);
-    setError(null);
     try {
-      const response = await apiRequest("/users");
-      if (response?.payload) {
-        setUsers(response.payload);
-      }
-    } catch (err: any) {
-      setError(err.message || "Failed to load users");
-      toast.error("Failed to load users");
+      setLoading(true);
+      const usersData = await getUsers();
+      
+      // Sort by creation date (newest first)
+      usersData.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      
+      setUsers(usersData);
+      onDataChange?.(); // Update sidebar badges if needed
+    } catch (error: any) {
+      console.error('Error loading users:', error);
+      toast.error('Failed to load users');
+      setUsers([]);
     } finally {
       setLoading(false);
     }
   };
 
+  // Filter users based on search term, role, and status
   const filteredUsers = users.filter(user => {
     const matchesSearch = user.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          user.email?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesRole = roleFilter === "all" || user.role === roleFilter;
-    return matchesSearch && matchesRole;
+    const matchesStatus = statusFilter === "all" || 
+                         (statusFilter === "active" && user.isActive) ||
+                         (statusFilter === "inactive" && !user.isActive);
+    return matchesSearch && matchesRole && matchesStatus;
   });
+
+  // Calculate statistics
+  const totalUsers = users.length;
+  const activeUsers = users.filter(u => u.isActive).length;
+  const adminUsers = users.filter(u => u.role === 'admin').length;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,260 +86,331 @@ export const UserManagement = () => {
       return;
     }
 
-    setIsCreating(true);
+    if (formData.password !== formData.confirmPassword) {
+      toast.error('Passwords do not match');
+      return;
+    }
+
+    if (formData.password.length < 6) {
+      toast.error('Password must be at least 6 characters');
+      return;
+    }
+
+    setIsSubmitting(true);
     try {
-      const response = await apiRequest("/users", {
-        method: "POST",
-        body: JSON.stringify({
+      if (editingUser) {
+        // Update existing user
+        const updateData: any = {
+          fullName: formData.fullName,
+          email: formData.email,
+          role: formData.role
+        };
+        
+        await updateUser(editingUser.userId, updateData);
+        toast.success('User updated successfully!');
+      } else {
+        // Create new user
+        await createUser({
           fullName: formData.fullName,
           email: formData.email,
           password: formData.password,
-          role: formData.role
-        })
-      });
-
-      toast.success(`${formData.role} user created successfully!`);
+          role: formData.role as "admin" | "cashier"
+        });
+        toast.success(`${formData.role} user created successfully!`);
+      }
+      
+      resetForm();
       setIsDialogOpen(false);
-      setFormData({
-        fullName: '',
-        email: '',
-        password: '',
-        role: ''
-      });
-      await loadUsers(); // Reload users after creating
+      await loadUsers();
     } catch (error: any) {
-      toast.error(error.message || 'Failed to create user');
+      toast.error(error.message || 'Failed to save user');
     } finally {
-      setIsCreating(false);
+      setIsSubmitting(false);
     }
   };
 
-  const handleDeleteUser = async (userId: number) => {
+  const handleEdit = (user: SystemUser) => {
+    setEditingUser(user);
+    setFormData({
+      fullName: user.fullName,
+      email: user.email,
+      password: "",
+      confirmPassword: "",
+      role: user.role
+    });
+    setIsDialogOpen(true);
+  };
+
+  const handleDelete = async (user: SystemUser) => {
     try {
-      await apiRequest(`/users/${userId}`, {
-        method: "DELETE"
-      });
-      toast.success("User deleted successfully");
-      await loadUsers(); // Reload users after deletion
+      await deleteUser(user.userId);
+      toast.success('User deleted successfully!');
+      await loadUsers();
     } catch (error: any) {
-      toast.error(error.message || "Failed to delete user");
+      console.error('Error deleting user:', error);
+      toast.error('Failed to delete user');
     }
   };
 
-  // Handle input changes for the create user form
+  const handleToggleStatus = async (user: SystemUser) => {
+    try {
+      await toggleUserStatus(user.userId, !user.isActive);
+      toast.success(`User ${!user.isActive ? 'activated' : 'deactivated'} successfully!`);
+      await loadUsers();
+    } catch (error: any) {
+      console.error('Error updating user status:', error);
+      toast.error('Failed to update user status');
+    }
+  };
+
+  const handleViewUser = (user: SystemUser) => {
+    setSelectedUser(user);
+    setShowUserDetails(true);
+  };
+
+  const resetForm = () => {
+    setFormData({
+      fullName: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+      role: ""
+    });
+    setEditingUser(null);
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
+    setFormData(prev => ({
       ...prev,
       [name]: value
     }));
   };
 
+  const getRoleLabel = (role: string) => {
+    switch (role) {
+      case 'admin': return 'Administrator';
+      case 'cashier': return 'Cashier';
+      default: return role;
+    }
+  };
+
+  const getRoleBadgeColor = (role: string) => {
+    switch (role) {
+      case 'admin': return 'bg-purple-100 text-purple-800';
+      case 'cashier': return 'bg-green-100 text-green-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center space-x-2">
           <Loader2 className="h-6 w-6 animate-spin" />
-          <div className="text-lg">Loading users...</div>
+          <span>Loading users...</span>
         </div>
       </div>
     );
   }
 
-  if (error) {
-    return (
-      <Card>
-        <CardContent className="p-6">
-          <div className="text-red-600">
-            <h3 className="text-lg font-semibold mb-2">Error Loading Users</h3>
-            <p>{error}</p>
-            <Button 
-              onClick={loadUsers} 
-              variant="outline" 
-              className="mt-4"
-            >
-              Try Again
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
-    <AdminOnly fallback={
-      <Card>
-        <CardContent className="p-6">
-          <p className="text-red-600">Access denied. Admin privileges required.</p>
-        </CardContent>
-      </Card>
-    }>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex justify-between items-center">
-          <div>
-            <h2 className="text-2xl font-bold">User Management</h2>
-            <p className="text-gray-600">Manage system users and their roles</p>
-          </div>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">User Management</h1>
+          <p className="text-gray-600">Manage system users and their access levels</p>
         </div>
-
-        {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-white p-4 rounded-lg border shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Total Users</p>
-                <p className="text-2xl font-bold text-gray-900">{users.length}</p>
-              </div>
-              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                <Users className="h-5 w-5 text-blue-600" />
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white p-4 rounded-lg border shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Admins</p>
-                <p className="text-2xl font-bold text-green-600">
-                  {users.filter(u => u.role === 'admin').length}
-                </p>
-              </div>
-              <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                <UserCog className="h-5 w-5 text-green-600" />
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white p-4 rounded-lg border shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Cashiers</p>
-                <p className="text-2xl font-bold text-yellow-600">
-                  {users.filter(u => u.role === 'cashier').length}
-                </p>
-              </div>
-              <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
-                <CreditCard className="h-5 w-5 text-yellow-600" />
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white p-4 rounded-lg border shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Active Users</p>
-                <p className="text-2xl font-bold text-purple-600">
-                  {users.filter(u => u.status === 'active').length}
-                </p>
-              </div>
-              <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
-                <CheckCircle className="h-5 w-5 text-purple-600" />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Search and Filters */}
-        <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-            <Input
-              placeholder="Search by name, email..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-          <div className="flex gap-2">
-            <Select value={roleFilter} onValueChange={setRoleFilter}>
-              <SelectTrigger className="w-32">
-                <Filter className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="All Roles" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Roles</SelectItem>
-                <SelectItem value="admin">Admin</SelectItem>
-                <SelectItem value="cashier">Cashier</SelectItem>
-              </SelectContent>
-            </Select>
-            
-            <Button onClick={() => setIsDialogOpen(true)}>
-              <UserPlus className="h-4 w-4 mr-2" />
-              New User
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="bg-blue-600 hover:bg-blue-700" onClick={() => resetForm()}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add User
             </Button>
-          </div>
-        </div>
+          </DialogTrigger>
+        </Dialog>
+      </div>
 
-        {/* Users Table */}
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card>
-          <CardHeader>
-            <CardTitle>System Users</CardTitle>
-            <CardDescription>Manage all system users and their permissions</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredUsers.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell className="font-medium">{user.fullName}</TableCell>
-                    <TableCell>{user.email}</TableCell>
-                    <TableCell>
-                      <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
-                        {user.role}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={user.status === 'active' ? 'default' : 'destructive'}>
-                        {user.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button variant="outline" size="sm">
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="destructive" size="sm">
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Delete User</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Are you sure you want to delete this user? This action cannot be undone.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction 
-                                onClick={() => handleDeleteUser(user.id)}
-                                className="bg-red-600 hover:bg-red-700"
-                              >
-                                Delete
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+          <CardContent className="p-6">
+            <div className="flex items-center">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <Users className="h-6 w-6 text-blue-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Total Users</p>
+                <p className="text-2xl font-bold text-gray-900">{totalUsers}</p>
+              </div>
+            </div>
           </CardContent>
         </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center">
+              <div className="p-2 bg-green-100 rounded-lg">
+                <Shield className="h-6 w-6 text-green-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Active Users</p>
+                <p className="text-2xl font-bold text-gray-900">{activeUsers}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center">
+              <div className="p-2 bg-purple-100 rounded-lg">
+                <UserPlus className="h-6 w-6 text-purple-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Administrators</p>
+                <p className="text-2xl font-bold text-gray-900">{adminUsers}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Users Table */}
+      <Card>
+        <CardHeader>
+          <div className="flex justify-between items-center">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                System Users
+              </CardTitle>
+              <CardDescription>Manage user accounts and permissions</CardDescription>
+            </div>
+            <div className="flex space-x-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Search users..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 w-64"
+                />
+              </div>
+              <Select value={roleFilter} onValueChange={setRoleFilter}>
+                <SelectTrigger className="w-32">
+                  <Filter className="mr-2 h-4 w-4" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Roles</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="cashier">Cashier</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>User</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Created</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredUsers.map((user) => (
+                <TableRow key={user.userId}>
+                  <TableCell>
+                    <div>
+                      <div className="font-medium">{user.fullName}</div>
+                      <div className="text-sm text-gray-500">{user.email}</div>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge className={getRoleBadgeColor(user.role)}>
+                      {getRoleLabel(user.role)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={user.isActive ? "default" : "secondary"}>
+                      {user.isActive ? 'Active' : 'Inactive'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>{new Date(user.createdAt).toLocaleDateString()}</TableCell>
+                  <TableCell>
+                    <div className="flex space-x-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => handleViewUser(user)}
+                        title="View Details"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => handleEdit(user)}
+                        title="Edit User"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant={user.isActive ? "secondary" : "default"} 
+                        size="sm" 
+                        onClick={() => handleToggleStatus(user)}
+                        title={user.isActive ? "Deactivate" : "Activate"}
+                      >
+                        <Shield className="h-4 w-4" />
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="destructive" size="sm" title="Delete User">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete User</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Are you sure you want to delete "{user.fullName}"? This action cannot be undone and will permanently remove the user from the system.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction 
+                              onClick={() => handleDelete(user)}
+                              className="bg-red-600 hover:bg-red-700"
+                            >
+                              Delete User
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
         {/* Create User Dialog */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -362,6 +456,18 @@ export const UserManagement = () => {
                 />
               </div>
               <div>
+                <Label htmlFor="confirmPassword">Confirm Password</Label>
+                <Input
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  type="password"
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  placeholder="Confirm password"
+                  required
+                />
+              </div>
+              <div>
                 <Label htmlFor="role">Role</Label>
                 <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value as 'admin' | 'cashier' | '' })}>
                   <SelectTrigger>
@@ -373,13 +479,12 @@ export const UserManagement = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <Button type="submit" className="w-full" disabled={isCreating}>
-                {isCreating ? 'Creating...' : 'Create User'}
+              <Button type="submit" className="w-full" disabled={isSubmitting}>
+                {isSubmitting ? 'Creating...' : 'Create User'}
               </Button>
             </form>
           </DialogContent>
         </Dialog>
       </div>
-    </AdminOnly>
   );
 };

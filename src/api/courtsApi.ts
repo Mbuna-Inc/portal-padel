@@ -1,6 +1,7 @@
 import { apiRequest } from './apiRequest';
 
 export interface Court {
+  category: string;
   courtId: string;
   name: string;
   location: string;
@@ -27,7 +28,7 @@ export interface UpdateCourtData {
 // Get all courts
 export const getCourts = async (): Promise<Court[]> => {
   try {
-    const response = await apiRequest('/courts', {
+    const response = await apiRequest('/courts/GetAll', {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -43,13 +44,13 @@ export const getCourts = async (): Promise<Court[]> => {
 // Get a single court by ID
 export const getCourt = async (courtId: string): Promise<Court> => {
   try {
-    const response = await apiRequest(`/courts/${courtId}`, {
+    const response = await apiRequest(`/courts/GetByID?id=${courtId}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
       },
     });
-    return response.payload;
+    return response.payload[0]; // Backend returns array with single item
   } catch (error) {
     console.error('Error fetching court:', error);
     throw new Error('Failed to fetch court');
@@ -59,7 +60,7 @@ export const getCourt = async (courtId: string): Promise<Court> => {
 // Create a new court
 export const createCourt = async (courtData: CreateCourtData): Promise<Court> => {
   try {
-    const response = await apiRequest('/courts', {
+    const response = await apiRequest('/courts/Add', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -76,7 +77,7 @@ export const createCourt = async (courtData: CreateCourtData): Promise<Court> =>
 // Update an existing court
 export const updateCourt = async (courtId: string, updates: UpdateCourtData): Promise<Court> => {
   try {
-    const response = await apiRequest(`/courts/${courtId}`, {
+    const response = await apiRequest(`/courts/Update?id=${courtId}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -93,7 +94,7 @@ export const updateCourt = async (courtId: string, updates: UpdateCourtData): Pr
 // Delete a court
 export const deleteCourt = async (courtId: string): Promise<void> => {
   try {
-    await apiRequest(`/courts/${courtId}`, {
+    await apiRequest(`/courts/Delete?id=${courtId}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
@@ -108,7 +109,7 @@ export const deleteCourt = async (courtId: string): Promise<void> => {
 // Toggle court status (available/closed)
 export const toggleCourtStatus = async (courtId: string): Promise<Court> => {
   try {
-    const response = await apiRequest(`/courts/${courtId}/toggle-status`, {
+    const response = await apiRequest(`/courts/ToggleStatus?id=${courtId}`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',

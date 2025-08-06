@@ -14,7 +14,11 @@ import { Equipment, getEquipment, createEquipment, updateEquipment, deleteEquipm
 import { useAuth } from "../../contexts/AuthContext";
 import { formatMWK, isValidMWKAmount } from "../../utils/currency";
 
-export const EquipmentManagement = () => {
+interface EquipmentManagementProps {
+  onDataChange?: () => void;
+}
+
+export const EquipmentManagement = ({ onDataChange }: EquipmentManagementProps = {}) => {
   const { user } = useAuth();
   const [equipment, setEquipment] = useState<Equipment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -98,6 +102,7 @@ export const EquipmentManagement = () => {
       setEditingEquipment(null);
       resetForm();
       await loadEquipment();
+      onDataChange?.(); // Update sidebar badges
     } catch (error: any) {
       console.error('Error saving equipment:', error);
       toast.error(error.message || "Failed to save equipment");
@@ -124,6 +129,7 @@ export const EquipmentManagement = () => {
       await deleteEquipment(equipment.equipmentId);
       toast.success(`Equipment "${equipment.name}" deleted successfully!`);
       await loadEquipment();
+      onDataChange?.(); // Update sidebar badges
     } catch (error: any) {
       console.error('Error deleting equipment:', error);
       toast.error(error.message || "Failed to delete equipment");

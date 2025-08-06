@@ -33,7 +33,7 @@ export interface UpdateEquipmentData {
 // Get all equipment
 export const getEquipment = async (): Promise<Equipment[]> => {
   try {
-    const response = await apiRequest('/equipment', {
+    const response = await apiRequest('/equipment/GetAll', {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -49,7 +49,7 @@ export const getEquipment = async (): Promise<Equipment[]> => {
 // Get a single equipment by ID
 export const getEquipmentById = async (equipmentId: string): Promise<Equipment> => {
   try {
-    const response = await apiRequest(`/equipment/${equipmentId}`, {
+    const response = await apiRequest(`/equipment/GetByID?id=${equipmentId}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -65,7 +65,7 @@ export const getEquipmentById = async (equipmentId: string): Promise<Equipment> 
 // Create new equipment
 export const createEquipment = async (equipmentData: CreateEquipmentData): Promise<Equipment> => {
   try {
-    const response = await apiRequest('/equipment', {
+    const response = await apiRequest('/equipment/Add', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -82,7 +82,7 @@ export const createEquipment = async (equipmentData: CreateEquipmentData): Promi
 // Update existing equipment
 export const updateEquipment = async (equipmentId: string, updates: UpdateEquipmentData): Promise<Equipment> => {
   try {
-    const response = await apiRequest(`/equipment/${equipmentId}`, {
+    const response = await apiRequest(`/equipment/Update?id=${equipmentId}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -99,7 +99,7 @@ export const updateEquipment = async (equipmentId: string, updates: UpdateEquipm
 // Delete equipment
 export const deleteEquipment = async (equipmentId: string): Promise<void> => {
   try {
-    await apiRequest(`/equipment/${equipmentId}`, {
+    await apiRequest(`/equipment/Delete?id=${equipmentId}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',

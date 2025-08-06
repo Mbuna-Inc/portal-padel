@@ -32,7 +32,7 @@ const App = () => (
               path="/dashboard"
               element={
                 <ProtectedRoute>
-                  <Dashboard user={undefined} onLogout={() => {}} />
+                  <Dashboard />
                 </ProtectedRoute>
               }
             />

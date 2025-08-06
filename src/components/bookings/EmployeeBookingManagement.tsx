@@ -5,19 +5,27 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Calendar, Clock, Plus, Edit, Trash2, User, CreditCard, Loader2, CheckCircle, XCircle, Search, Filter, Users, Crown, CalendarDays } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+import { Calendar, Clock, Plus, Edit, Trash2, User, CreditCard, Loader2, CheckCircle, XCircle, Search, Filter, Users, Crown, CalendarDays, CalendarRange, Clock3, CalendarCheck, Printer, Eye } from "lucide-react";
 import { toast } from "sonner";
+import jsPDF from 'jspdf';
 import { EmployeeBooking, BookingEquipment, createBooking, getBookings, updateBooking, deleteBooking, TIME_SLOTS, checkAvailability, getOccupiedSlots } from "../../api/bookingsApi";
 import { Court, getCourts } from "../../api/courtsApi";
 import { Equipment, getEquipment } from "../../api/equipmentApi";
 import { useAuth } from "../../contexts/AuthContext";
 import { formatMWK, isValidMWKAmount } from "../../utils/currency";
+import { StepBookingModal } from "./StepBookingModal";
 
-export const EmployeeBookingManagement = () => {
+interface EmployeeBookingManagementProps {
+  onDataChange?: () => void;
+}
+
+export const EmployeeBookingManagement = ({ onDataChange }: EmployeeBookingManagementProps = {}) => {
   const { user } = useAuth();
   const [bookings, setBookings] = useState<EmployeeBooking[]>([]);
   const [courts, setCourts] = useState<Court[]>([]);
@@ -32,6 +40,9 @@ export const EmployeeBookingManagement = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [roleFilter, setRoleFilter] = useState("all");
+  const [activeTab, setActiveTab] = useState("all");
+  const [selectedBooking, setSelectedBooking] = useState<EmployeeBooking | null>(null);
+  const [showBookingDetails, setShowBookingDetails] = useState(false);
 
   const [selectedEquipment, setSelectedEquipment] = useState<{[key: string]: number}>({});
   
@@ -329,6 +340,7 @@ export const EmployeeBookingManagement = () => {
       setPendingBooking(null);
       resetForm();
       await loadData();
+      onDataChange?.(); // Update sidebar badges
     } catch (error: any) {
       console.error('Error creating booking:', error);
       toast.error(error.message || "Failed to create booking");
@@ -337,11 +349,39 @@ export const EmployeeBookingManagement = () => {
     }
   };
 
+  const handleBookingSubmit = async (bookingData: any) => {
+    if (!user) return;
+
+    const finalBookingData = {
+      courtId: bookingData.courtId,
+      equipment: bookingData.equipment,
+      bookingDate: bookingData.bookingDate,
+      timeSlots: bookingData.timeSlots,
+      fullDayBooking: bookingData.fullDayBooking,
+      customerName: bookingData.customerName.trim(),
+      customerPhone: bookingData.customerPhone?.trim() || undefined,
+      customerEmail: bookingData.customerEmail?.trim() || undefined,
+      paymentMethod: bookingData.paymentMethod,
+      total: parseFloat(bookingData.total),
+      amountPaid: parseFloat(bookingData.amountPaid),
+      paymentId: bookingData.paymentId?.trim() || undefined,
+      notes: bookingData.notes?.trim() || undefined,
+      discount: parseFloat(bookingData.discount) || undefined
+    };
+
+    await createBooking(finalBookingData);
+    toast.success(`Booking created successfully for ${bookingData.customerName}!`);
+    
+    await loadData();
+    onDataChange?.(); // Update sidebar badges
+  };
+
   const handleStatusUpdate = async (booking: EmployeeBooking, newStatus: EmployeeBooking['status']) => {
     try {
       await updateBooking(booking.bookingId, { status: newStatus });
       toast.success(`Booking ${newStatus} successfully!`);
       await loadData();
+      onDataChange?.(); // Update sidebar badges
     } catch (error: any) {
       toast.error(error.message || "Failed to update booking");
     }
@@ -352,6 +392,7 @@ export const EmployeeBookingManagement = () => {
       await deleteBooking(booking.bookingId);
       toast.success(`Booking for ${booking.customerName} deleted successfully!`);
       await loadData();
+      onDataChange?.(); // Update sidebar badges
     } catch (error: any) {
       toast.error(error.message || "Failed to delete booking");
     }
@@ -427,8 +468,202 @@ export const EmployeeBookingManagement = () => {
     return "available"; // Slot is available
   };
 
-  // Filter bookings based on search and filters
-  const filteredBookings = bookings.filter(booking => {
+  const printReceipt = (booking: EmployeeBooking) => {
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: [80, 200] // POS paper width (80mm) with flexible height
+    });
+
+    // Set font
+    doc.setFont('helvetica');
+    
+    let yPos = 10;
+    const lineHeight = 4;
+    const centerX = 40; // Center of 80mm width
+
+    // Header
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('PADLE ZONE', centerX, yPos, { align: 'center' });
+    yPos += lineHeight + 2;
+    
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Receipt', centerX, yPos, { align: 'center' });
+    yPos += lineHeight + 3;
+    
+    // Separator line
+    doc.text('================================', centerX, yPos, { align: 'center' });
+    yPos += lineHeight + 2;
+
+    // Booking Details
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.text('BOOKING DETAILS', 5, yPos);
+    yPos += lineHeight + 1;
+    
+    doc.setFont('helvetica', 'normal');
+    doc.text(`ID: ${booking.bookingId}`, 5, yPos);
+    yPos += lineHeight;
+    
+    doc.text(`Date: ${new Date().toLocaleDateString()}`, 5, yPos);
+    yPos += lineHeight;
+    
+    doc.text(`Time: ${new Date().toLocaleTimeString()}`, 5, yPos);
+    yPos += lineHeight + 2;
+
+    // Customer Information
+    doc.setFont('helvetica', 'bold');
+    doc.text('CUSTOMER INFO', 5, yPos);
+    yPos += lineHeight + 1;
+    
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Name: ${booking.customerName}`, 5, yPos);
+    yPos += lineHeight;
+    
+    if (booking.customerPhone) {
+      doc.text(`Phone: ${booking.customerPhone}`, 5, yPos);
+      yPos += lineHeight;
+    }
+    
+    if (booking.customerEmail) {
+      doc.text(`Email: ${booking.customerEmail}`, 5, yPos);
+      yPos += lineHeight;
+    }
+    yPos += 2;
+
+    // Court & Time Details
+    doc.setFont('helvetica', 'bold');
+    doc.text('COURT & TIME', 5, yPos);
+    yPos += lineHeight + 1;
+    
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Court: ${booking.courtName}`, 5, yPos);
+    yPos += lineHeight;
+    
+    doc.text(`Date: ${booking.bookingDate}`, 5, yPos);
+    yPos += lineHeight;
+    
+    doc.text(`Time: ${formatTimeSlots(booking.timeSlots)}`, 5, yPos);
+    yPos += lineHeight + 2;
+
+    // Equipment (if any)
+    if (booking.equipment && booking.equipment.length > 0) {
+      doc.setFont('helvetica', 'bold');
+      doc.text('EQUIPMENT', 5, yPos);
+      yPos += lineHeight + 1;
+      
+      doc.setFont('helvetica', 'normal');
+      booking.equipment.forEach((item) => {
+        doc.text(`${item.name} x${item.quantity}`, 5, yPos);
+        doc.text(`${formatMWK(item.totalPrice)}`, 65, yPos, { align: 'right' });
+        yPos += lineHeight;
+      });
+      yPos += 2;
+    }
+
+    // Payment Details
+    doc.setFont('helvetica', 'bold');
+    doc.text('PAYMENT DETAILS', 5, yPos);
+    yPos += lineHeight + 1;
+    
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Method: ${booking.paymentMethod.replace('_', ' ').toUpperCase()}`, 5, yPos);
+    yPos += lineHeight;
+    
+    doc.text(`Total: ${formatMWK(booking.total)}`, 5, yPos);
+    doc.text(`${formatMWK(booking.total)}`, 65, yPos, { align: 'right' });
+    yPos += lineHeight;
+    
+    doc.text(`Paid: ${formatMWK(booking.amountPaid)}`, 5, yPos);
+    doc.text(`${formatMWK(booking.amountPaid)}`, 65, yPos, { align: 'right' });
+    yPos += lineHeight;
+    
+    if (booking.amountPaid < booking.total) {
+      const balance = booking.total - booking.amountPaid;
+      doc.text(`Balance: ${formatMWK(balance)}`, 5, yPos);
+      doc.text(`${formatMWK(balance)}`, 65, yPos, { align: 'right' });
+      yPos += lineHeight;
+    }
+    
+    if (booking.paymentId) {
+      doc.text(`Payment ID: ${booking.paymentId}`, 5, yPos);
+      yPos += lineHeight;
+    }
+    yPos += 2;
+
+    // Status
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Status: ${booking.status.toUpperCase()}`, 5, yPos);
+    yPos += lineHeight + 3;
+
+    // Separator line
+    doc.text('================================', centerX, yPos, { align: 'center' });
+    yPos += lineHeight + 2;
+
+    // Footer
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Thank you for choosing Padle!', centerX, yPos, { align: 'center' });
+    yPos += lineHeight;
+    
+    doc.text('Visit us again soon', centerX, yPos, { align: 'center' });
+    yPos += lineHeight + 2;
+    
+    doc.text(`Served by: ${user?.fullName || 'Staff'}`, centerX, yPos, { align: 'center' });
+    yPos += lineHeight;
+    
+    if (booking.notes) {
+      yPos += 2;
+      doc.text('Notes:', 5, yPos);
+      yPos += lineHeight;
+      // Split long notes into multiple lines
+      const noteLines = doc.splitTextToSize(booking.notes, 70);
+      noteLines.forEach((line: string) => {
+        doc.text(line, 5, yPos);
+        yPos += lineHeight;
+      });
+    }
+
+    // Save and print
+    const fileName = `receipt_${booking.bookingId}_${new Date().getTime()}.pdf`;
+    doc.save(fileName);
+    
+    toast.success('Receipt generated successfully!');
+  };
+
+  const handleViewBooking = (booking: EmployeeBooking) => {
+    setSelectedBooking(booking);
+    setShowBookingDetails(true);
+  };
+
+  // Filter bookings by date based on active tab
+  const filterBookingsByDate = (bookings: EmployeeBooking[]) => {
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    
+    switch (activeTab) {
+      case 'upcoming':
+        return bookings.filter(booking => {
+          const bookingDate = new Date(booking.bookingDate);
+          return bookingDate > today;
+        });
+      case 'today':
+        return bookings.filter(booking => booking.bookingDate === todayStr);
+      case 'past':
+        return bookings.filter(booking => {
+          const bookingDate = new Date(booking.bookingDate);
+          return bookingDate < today && booking.bookingDate !== todayStr;
+        });
+      case 'all':
+      default:
+        return bookings;
+    }
+  };
+
+  // Filter bookings based on search, filters, and date tab
+  const filteredBookings = filterBookingsByDate(bookings).filter(booking => {
     const matchesSearch = searchTerm === "" || 
       booking.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       booking.customerEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -459,6 +694,16 @@ export const EmployeeBookingManagement = () => {
           <h2 className="text-2xl font-bold">Walk-In Bookings</h2>
           <p className="text-gray-600">Manage bookings for walk-in customers</p>
         </div>
+        <Button 
+          onClick={() => {
+            resetForm();
+            setIsDialogOpen(true);
+          }}
+          className="bg-blue-600 hover:bg-blue-700"
+        >
+          <Plus className="h-4 w-4 mr-2" />
+          Add Booking
+        </Button>
       </div>
 
       {/* Statistics Cards */}
@@ -518,352 +763,92 @@ export const EmployeeBookingManagement = () => {
         </div>
       </div>
 
-      {/* Search and Filters */}
-      <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-          <Input
-            placeholder="Search by customer name, email, or phone..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        
-        <div className="flex gap-2">
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-32">
-              <Filter className="h-4 w-4 mr-2" />
-              <SelectValue placeholder="All Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="confirmed">Confirmed</SelectItem>
-              <SelectItem value="completed">Completed</SelectItem>
-              <SelectItem value="cancelled">Cancelled</SelectItem>
-            </SelectContent>
-          </Select>
-          
-          <Select value={roleFilter} onValueChange={setRoleFilter}>
-            <SelectTrigger className="w-32">
-              <Users className="h-4 w-4 mr-2" />
-              <SelectValue placeholder="All Roles" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Roles</SelectItem>
-              <SelectItem value="admin">Admin</SelectItem>
-              <SelectItem value="cashier">Cashier</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        
-        <Button onClick={() => setIsDialogOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          New Booking
-        </Button>
-      </div>
+      {/* Tabbed Interface */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+          <TabsList className="grid w-full lg:w-auto grid-cols-4">
+            <TabsTrigger value="all" className="flex items-center gap-2">
+              <CalendarRange className="h-4 w-4" />
+              All
+              <Badge variant="secondary" className="ml-1">
+                {bookings.length}
+              </Badge>
+            </TabsTrigger>
+            <TabsTrigger value="today" className="flex items-center gap-2">
+              <CalendarCheck className="h-4 w-4" />
+              Today
+              <Badge variant="secondary" className="ml-1">
+                {bookings.filter(booking => booking.bookingDate === new Date().toISOString().split('T')[0]).length}
+              </Badge>
+            </TabsTrigger>
+            <TabsTrigger value="upcoming" className="flex items-center gap-2">
+              <Clock3 className="h-4 w-4" />
+              Upcoming
+              <Badge variant="secondary" className="ml-1">
+                {bookings.filter(booking => {
+                  const bookingDate = new Date(booking.bookingDate);
+                  const today = new Date();
+                  return bookingDate > today;
+                }).length}
+              </Badge>
+            </TabsTrigger>
+            <TabsTrigger value="past" className="flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              Past
+              <Badge variant="secondary" className="ml-1">
+                {bookings.filter(booking => {
+                  const bookingDate = new Date(booking.bookingDate);
+                  const today = new Date();
+                  const todayStr = today.toISOString().split('T')[0];
+                  return bookingDate < today && booking.bookingDate !== todayStr;
+                }).length}
+              </Badge>
+            </TabsTrigger>
+          </TabsList>
 
-      <Dialog open={isDialogOpen} onOpenChange={(open) => {
-          setIsDialogOpen(open);
-          if (!open) resetForm();
-        }}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Create Walk-In Booking</DialogTitle>
-              <DialogDescription>
-                Create a new booking for a walk-in customer
-              </DialogDescription>
-            </DialogHeader>
+          {/* Search and Filters */}
+          <div className="flex flex-col sm:flex-row gap-4 items-center">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Input
+                placeholder="Search by customer name, email, or phone..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 w-64"
+              />
+            </div>
             
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Court Selection */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="court">Court</Label>
-                  <Select value={formData.courtId} onValueChange={(value) => setFormData({...formData, courtId: value})}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a court" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {courts.map(court => (
-                        <SelectItem key={court.courtId} value={court.courtId}>
-                          {court.name} - {formatMWK(court.pricePerHour)}/hour
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="date">Booking Date</Label>
-                  <Input
-                    id="date"
-                    type="date"
-                    value={formData.bookingDate}
-                    onChange={(e) => setFormData({...formData, bookingDate: e.target.value})}
-                    min={new Date().toISOString().split('T')[0]}
-                    required
-                  />
-                </div>
-              </div>
+            <div className="flex gap-2">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-32">
+                  <Filter className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="All Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="confirmed">Confirmed</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              <Select value={roleFilter} onValueChange={setRoleFilter}>
+                <SelectTrigger className="w-32">
+                  <Users className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="All Roles" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Roles</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="cashier">Cashier</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
 
-              {/* Time Slots */}
-              <div className="space-y-4">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="fullDay"
-                    checked={formData.fullDayBooking}
-                    onCheckedChange={handleFullDayToggle}
-                  />
-                  <Label htmlFor="fullDay">Book entire day (8:00 AM - 5:00 PM)</Label>
-                </div>
-                
-                {!formData.fullDayBooking && (
-                  <div>
-                    <Label>Select Time Slots (1 hour each)</Label>
-                    <div className="grid grid-cols-5 gap-2 mt-2">
-                      {TIME_SLOTS.map(slot => {
-                        const slotStatus = getSlotStatus(slot);
-                        const isSelected = formData.timeSlots.includes(slot);
-
-                        return (
-                          <Button
-                            key={slot}
-                            type="button"
-                            variant={isSelected ? "default" : "outline"}
-                            size="sm"
-                            disabled={slotStatus === "passed" || slotStatus === "booked"}
-                            onClick={() => handleTimeSlotToggle(slot)}
-                            className={
-                              slotStatus === "booked"
-                                ? "bg-red-500 text-white"
-                                : slotStatus === "passed"
-                                ? "bg-gray-300 text-gray-600 cursor-not-allowed"
-                                : "bg-green-500 text-white"
-                            }
-                          >
-                            {slot}
-                            {slotStatus === "booked" && <XCircle className="h-3 w-3 ml-1" />}
-                          </Button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Equipment Selection */}
-              <div className="space-y-4">
-                <Label>Equipment (Optional)</Label>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {equipment.map(equip => {
-                    const currentQuantity = getEquipmentQuantity(equip.equipmentId);
-                    const maxQuantity = Math.min(equip.stock, 10); // Limit to 10 sets max
-                    
-                    return (
-                      <div key={equip.equipmentId} className="border rounded-lg p-3 space-y-2">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <div className="font-medium">{equip.name}</div>
-                            <div className="text-sm text-gray-600">
-                              {formatMWK(equip.price)}/hour per set
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              Stock: {equip.stock} available
-                            </div>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center space-x-2">
-                          <Label htmlFor={`qty-${equip.equipmentId}`} className="text-sm">
-                            Quantity:
-                          </Label>
-                          <div className="flex items-center space-x-1">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleEquipmentQuantityChange(equip.equipmentId, currentQuantity - 1)}
-                              disabled={currentQuantity <= 0}
-                              className="h-8 w-8 p-0"
-                            >
-                              -
-                            </Button>
-                            <Input
-                              id={`qty-${equip.equipmentId}`}
-                              type="number"
-                              min="0"
-                              max={maxQuantity}
-                              value={currentQuantity}
-                              onChange={(e) => handleEquipmentQuantityChange(equip.equipmentId, parseInt(e.target.value) || 0)}
-                              className="w-16 text-center h-8"
-                            />
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleEquipmentQuantityChange(equip.equipmentId, currentQuantity + 1)}
-                              disabled={currentQuantity >= maxQuantity}
-                              className="h-8 w-8 p-0"
-                            >
-                              +
-                            </Button>
-                          </div>
-                        </div>
-                        
-                        {currentQuantity > 0 && (
-                          <div className="text-sm text-blue-600 font-medium">
-                            Subtotal: {formatMWK(equip.price * currentQuantity * (formData.fullDayBooking ? 9 : Math.max(formData.timeSlots.length, 1)))}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-                
-                {/* Equipment Summary */}
-                {formData.equipment.length > 0 && (
-                  <div className="bg-blue-50 p-3 rounded-lg">
-                    <div className="font-medium text-blue-800 mb-2">Selected Equipment:</div>
-                    {formData.equipment.map(item => (
-                      <div key={item.equipmentId} className="flex justify-between text-sm text-blue-700">
-                        <span>{item.name} × {item.quantity}</span>
-                        <span>{formatMWK(item.totalPrice)}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Customer Information */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="customerName">Customer Name *</Label>
-                  <Input
-                    id="customerName"
-                    value={formData.customerName}
-                    onChange={(e) => setFormData({...formData, customerName: e.target.value})}
-                    placeholder="Enter customer name"
-                    required
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="customerPhone">Phone (Optional)</Label>
-                  <Input
-                    id="customerPhone"
-                    value={formData.customerPhone}
-                    onChange={(e) => setFormData({...formData, customerPhone: e.target.value})}
-                    placeholder="Enter phone number"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="customerEmail">Email (Optional)</Label>
-                  <Input
-                    id="customerEmail"
-                    type="email"
-                    value={formData.customerEmail}
-                    onChange={(e) => setFormData({...formData, customerEmail: e.target.value})}
-                    placeholder="Enter email address"
-                  />
-                </div>
-              </div>
-
-              {/* Payment Information */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="paymentMethod">Payment Method</Label>
-                  <Select value={formData.paymentMethod} onValueChange={(value: any) => setFormData({...formData, paymentMethod: value})}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="cash">Cash</SelectItem>
-                      <SelectItem value="mobile_money">Mobile Money</SelectItem>
-                      <SelectItem value="bank">Bank Transfer</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="paymentId">Payment ID (Optional)</Label>
-                  <Input
-                    id="paymentId"
-                    value={formData.paymentId}
-                    onChange={(e) => setFormData({...formData, paymentId: e.target.value})}
-                    placeholder="Transaction reference"
-                  />
-                </div>
-              </div>
-
-              {/* Pricing */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="discount">Discount (MWK)</Label>
-                  <Input
-                    id="discount"
-                    type="number"
-                    min="0"
-                    value={formData.discount}
-                    onChange={(e) => setFormData({...formData, discount: e.target.value})}
-                    placeholder="0"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="total">Total Amount</Label>
-                  <Input
-                    id="total"
-                    value={formatMWK(parseFloat(formData.total) || 0)}
-                    readOnly
-                    className="bg-gray-50"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="amountPaid">Amount Paid</Label>
-                  <Input
-                    id="amountPaid"
-                    type="number"
-                    min="0"
-                    value={formData.amountPaid}
-                    onChange={(e) => setFormData({...formData, amountPaid: e.target.value})}
-                    placeholder="Amount paid"
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Notes */}
-              <div className="space-y-2">
-                <Label htmlFor="notes">Notes (Optional)</Label>
-                <Input
-                  id="notes"
-                  value={formData.notes}
-                  onChange={(e) => setFormData({...formData, notes: e.target.value})}
-                  placeholder="Additional notes..."
-                />
-              </div>
-
-              {/* Submit Buttons */}
-              <div className="flex gap-2 pt-4">
-                <Button type="submit" className="flex-1" disabled={isSubmitting}>
-                  {isSubmitting ? 'Creating...' : 'Create Booking'}
-                </Button>
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={() => setIsDialogOpen(false)}
-                  disabled={isSubmitting}
-                >
-                  Cancel
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
+        <TabsContent value={activeTab} className="space-y-4">
 
       {/* Confirmation Dialog */}
       <AlertDialog open={showConfirmation} onOpenChange={setShowConfirmation}>
@@ -980,30 +965,49 @@ export const EmployeeBookingManagement = () => {
                             Complete
                           </Button>
                         )}
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="destructive" size="sm">
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Delete Booking</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Are you sure you want to delete the booking for {booking.customerName}? This action cannot be undone.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction 
-                                onClick={() => handleDelete(booking)}
-                                className="bg-red-600 hover:bg-red-700"
-                              >
-                                Delete
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleViewBooking(booking)}
+                          title="View Booking Details"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => printReceipt(booking)}
+                          title="Print Receipt"
+                        >
+                          <Printer className="h-4 w-4" />
+                        </Button>
+                        {/* Delete Button (Admin only) */}
+                        {user?.role === "admin" && (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="destructive" size="sm">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete Booking</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you want to delete the booking for {booking.customerName}? This action cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction 
+                                  onClick={() => handleDelete(booking)}
+                                  className="bg-red-600 hover:bg-red-700"
+                                >
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -1022,14 +1026,188 @@ export const EmployeeBookingManagement = () => {
                   : "No bookings match your search criteria."
                 }
               </p>
-              <Button onClick={() => setIsDialogOpen(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Create First Booking
-              </Button>
+              {/* Removed duplicate Add Booking button here, use only the header button */}
             </div>
           )}
         </CardContent>
-      </Card>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {/* Booking Details Modal */}
+      <Dialog open={showBookingDetails} onOpenChange={setShowBookingDetails}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="h-5 w-5" />
+              Booking Details
+            </DialogTitle>
+            <DialogDescription>
+              Complete information for booking {selectedBooking?.bookingId}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedBooking && (
+            <div className="space-y-6">
+              {/* Customer Information */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium text-gray-600">Customer Information</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4 text-gray-500" />
+                      <span className="font-medium">{selectedBooking.customerName}</span>
+                    </div>
+                    {selectedBooking.customerPhone && (
+                      <div className="flex items-center gap-2">
+                        <span className="h-4 w-4 text-gray-500">📞</span>
+                        <span>{selectedBooking.customerPhone}</span>
+                      </div>
+                    )}
+                    {selectedBooking.customerEmail && (
+                      <div className="flex items-center gap-2">
+                        <span className="h-4 w-4 text-gray-500">✉️</span>
+                        <span>{selectedBooking.customerEmail}</span>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium text-gray-600">Booking Information</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-gray-500" />
+                      <span>{selectedBooking.bookingDate}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-gray-500" />
+                      <span>{formatTimeSlots(selectedBooking.timeSlots)}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="h-4 w-4 text-gray-500">🏟️</span>
+                      <span>{selectedBooking.courtName}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium">Status:</span>
+                      <Badge variant={getStatusBadge(selectedBooking.status).variant}>
+                        {getStatusBadge(selectedBooking.status).label}
+                      </Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+              
+              {/* Equipment */}
+              {selectedBooking.equipment && selectedBooking.equipment.length > 0 && (
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium text-gray-600">Equipment Rental</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {selectedBooking.equipment.map((item, index) => (
+                        <div key={index} className="flex justify-between items-center">
+                          <span>{item.name} x{item.quantity}</span>
+                          <span className="font-medium">{formatMWK(item.totalPrice)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              
+              {/* Payment Information */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium text-gray-600">Payment Details</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <div className="flex justify-between">
+                      <span>Method:</span>
+                      <span className="capitalize">{selectedBooking.paymentMethod.replace('_', ' ')}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Total:</span>
+                      <span className="font-medium">{formatMWK(selectedBooking.total)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Amount Paid:</span>
+                      <span className="font-medium">{formatMWK(selectedBooking.amountPaid)}</span>
+                    </div>
+                    {selectedBooking.amountPaid < selectedBooking.total && (
+                      <div className="flex justify-between text-red-600">
+                        <span>Balance:</span>
+                        <span className="font-medium">{formatMWK(selectedBooking.total - selectedBooking.amountPaid)}</span>
+                      </div>
+                    )}
+                    {selectedBooking.paymentId && (
+                      <div className="flex justify-between">
+                        <span>Payment ID:</span>
+                        <span className="font-mono text-sm">{selectedBooking.paymentId}</span>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium text-gray-600">Booking Details</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <div className="flex justify-between">
+                      <span>Booking ID:</span>
+                      <span className="font-mono text-sm">{selectedBooking.bookingId}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Created By:</span>
+                      <span>{selectedBooking.createdBy || 'System'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Created At:</span>
+                      <span className="text-sm">{new Date(selectedBooking.createdAt).toLocaleString()}</span>
+                    </div>
+                    {selectedBooking.discount && selectedBooking.discount > 0 && (
+                      <div className="flex justify-between text-green-600">
+                        <span>Discount:</span>
+                        <span className="font-medium">{formatMWK(selectedBooking.discount)}</span>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+              
+              {/* Notes */}
+              {selectedBooking.notes && (
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium text-gray-600">Notes</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-gray-700">{selectedBooking.notes}</p>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <StepBookingModal
+        isOpen={isDialogOpen}
+        onClose={() => setIsDialogOpen(false)}
+        onSubmit={handleBookingSubmit}
+        courts={courts}
+        equipment={equipment}
+        title="Create Employee Booking"
+        description="Create a new booking with step-by-step process"
+        bookingType="employee"
+      />
     </div>
   );
 };

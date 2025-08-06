@@ -67,7 +67,7 @@ export const TIME_SLOTS = [
 // Get all bookings
 export const getBookings = async (): Promise<EmployeeBooking[]> => {
   try {
-    const response = await apiRequest('/employee-bookings', {
+    const response = await apiRequest('/employee-bookings/GetAll', {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -83,7 +83,7 @@ export const getBookings = async (): Promise<EmployeeBooking[]> => {
 // Get bookings by date
 export const getBookingsByDate = async (date: string): Promise<EmployeeBooking[]> => {
   try {
-    const response = await apiRequest(`/employee-bookings?date=${date}`, {
+    const response = await apiRequest(`/employee-bookings/GetAll?date=${date}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -99,7 +99,7 @@ export const getBookingsByDate = async (date: string): Promise<EmployeeBooking[]
 // Get single booking
 export const getBooking = async (bookingId: string): Promise<EmployeeBooking> => {
   try {
-    const response = await apiRequest(`/employee-bookings/${bookingId}`, {
+    const response = await apiRequest(`/employee-bookings/GetByID?id=${bookingId}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -115,7 +115,7 @@ export const getBooking = async (bookingId: string): Promise<EmployeeBooking> =>
 // Create new booking
 export const createBooking = async (bookingData: CreateBookingData): Promise<EmployeeBooking> => {
   try {
-    const response = await apiRequest('/employee-bookings', {
+    const response = await apiRequest('/employee-bookings/Add', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -132,7 +132,7 @@ export const createBooking = async (bookingData: CreateBookingData): Promise<Emp
 // Update booking
 export const updateBooking = async (bookingId: string, updates: UpdateBookingData): Promise<EmployeeBooking> => {
   try {
-    const response = await apiRequest(`/employee-bookings/${bookingId}`, {
+    const response = await apiRequest(`/employee-bookings/Update?id=${bookingId}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -159,7 +159,7 @@ export const cancelBooking = async (bookingId: string): Promise<void> => {
 // Delete booking
 export const deleteBooking = async (bookingId: string): Promise<void> => {
   try {
-    await apiRequest(`/employee-bookings/${bookingId}`, {
+    await apiRequest(`/employee-bookings/Delete?id=${bookingId}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
@@ -191,7 +191,7 @@ export const checkAvailability = async (courtId: string, date: string, timeSlots
 // Get occupied time slots for a court on a specific date
 export const getOccupiedSlots = async (courtId: string, date: string): Promise<string[]> => {
   try {
-    const response = await apiRequest(`/employee-bookings/occupied-slots?courtId=${courtId}&date=${date}`, {
+    const response = await apiRequest(`/booked-timeslots/occupied?courtId=${courtId}&date=${date}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -200,6 +200,18 @@ export const getOccupiedSlots = async (courtId: string, date: string): Promise<s
     return response.payload.occupiedSlots || [];
   } catch (error) {
     console.error('Error fetching occupied slots:', error);
-    return [];
+    // Fallback to old endpoint if new one fails
+    try {
+      const fallbackResponse = await apiRequest(`/employee-bookings/occupied-slots?courtId=${courtId}&date=${date}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      return fallbackResponse.payload.occupiedSlots || [];
+    } catch (fallbackError) {
+      console.error('Error with fallback occupied slots:', fallbackError);
+      return [];
+    }
   }
 };

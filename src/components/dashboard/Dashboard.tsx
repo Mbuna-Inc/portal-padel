@@ -7,7 +7,9 @@ import { BookingManagement } from "./BookingManagement";
 import { EquipmentManagement } from "../equipment/EquipmentManagement";
 import { EmployeeBookingManagement } from "../bookings/EmployeeBookingManagement";
 import { CustomerBookingManagement } from "../bookings/CustomerBookingManagement";
+import { TimeslotsManagement } from "./TimeslotsManagement";
 import { Analytics } from "../analytics/Analytics";
+import { ExpensesManagement } from "../expenses/ExpensesManagement";
 import { UserManagement } from "./UserManagement";
 import { MyBookings } from "./MyBookings";
 import { Button } from "@/components/ui/button";
@@ -24,15 +26,39 @@ export const Dashboard = () => {
   const [equipmentCount, setEquipmentCount] = useState(0);
   const [bookingCount, setBookingCount] = useState(0);
 
+  // Function to refresh all counts
+  const refreshCounts = async () => {
+    try {
+      // Load court count
+      const courts = await getCourts();
+      setCourtCount(courts.length);
+    } catch (error) {
+      console.error('Error loading courts:', error);
+      setCourtCount(0);
+    }
+
+    try {
+      // Load equipment count
+      const equipment = await getEquipment();
+      setEquipmentCount(equipment.length);
+    } catch (error) {
+      console.error('Error loading equipment:', error);
+      setEquipmentCount(0);
+    }
+
+    try {
+      // Load booking count
+      const { getBookings } = await import('../../api/bookingsApi');
+      const bookings = await getBookings();
+      setBookingCount(bookings.length);
+    } catch (error) {
+      console.error('Error loading bookings:', error);
+      setBookingCount(0);
+    }
+  };
+
   useEffect(() => {
-    // Load court count
-    getCourts().then(courts => setCourtCount(courts.length)).catch(() => setCourtCount(0));
-    // Load equipment count
-    getEquipment().then(equipment => setEquipmentCount(equipment.length)).catch(() => setEquipmentCount(0));
-    // Load booking count
-    import('../../api/bookingsApi').then(({ getBookings }) => {
-      getBookings().then(bookings => setBookingCount(bookings.length)).catch(() => setBookingCount(0));
-    });
+    refreshCounts();
   }, []);
 
   if (!user) return null;
@@ -42,15 +68,19 @@ export const Dashboard = () => {
       case "dashboard":
         return <DashboardContent user={user} />;
       case "courts":
-        return <CourtsManagement />;
+        return <CourtsManagement onDataChange={refreshCounts} />;
       case "employee-bookings":
-        return <EmployeeBookingManagement />;
+        return <EmployeeBookingManagement onDataChange={refreshCounts} />;
       case "customer-bookings":
-        return <CustomerBookingManagement />;
+        return <CustomerBookingManagement onDataChange={refreshCounts} />;
+      case "timeslots":
+        return user.role === "admin" ? <TimeslotsManagement onDataChange={refreshCounts} /> : <MyBookings user={user} />;
       case "analytics":
-        return <Analytics />;
+        return user.role === "admin" ? <Analytics /> : <MyBookings user={user} />;
       case "equipment":
-        return <EquipmentManagement />;
+        return <EquipmentManagement onDataChange={refreshCounts} />;
+      case "expenses":
+        return user.role === "admin" ? <ExpensesManagement onDataChange={refreshCounts} /> : <MyBookings user={user} />;
       case "users":
         return user.role === "admin" ? <UserManagement /> : <MyBookings user={user} />;
       default:

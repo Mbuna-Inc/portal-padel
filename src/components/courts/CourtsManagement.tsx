@@ -14,7 +14,11 @@ import { Court, getCourts, createCourt, updateCourt, deleteCourt, toggleCourtSta
 import { useAuth } from "../../contexts/AuthContext";
 import { formatMWK, isValidMWKAmount } from "../../utils/currency";
 
-export const CourtsManagement = () => {
+interface CourtsManagementProps {
+  onDataChange?: () => void;
+}
+
+export const CourtsManagement = ({ onDataChange }: CourtsManagementProps = {}) => {
   const { user } = useAuth();
   const [courts, setCourts] = useState<Court[]>([]);
   const [loading, setLoading] = useState(true);
@@ -83,6 +87,7 @@ export const CourtsManagement = () => {
       setEditingCourt(null);
       setFormData({ name: "", location: "", pricePerHour: "", status: "available" });
       await loadCourts();
+      onDataChange?.(); // Update sidebar badges
     } catch (error: any) {
       console.error('Error saving court:', error);
       toast.error(error.message || "Failed to save court");
@@ -110,6 +115,7 @@ export const CourtsManagement = () => {
       toast.success(`Court "${deletingCourt.name}" deleted successfully!`);
       setDeletingCourt(null);
       await loadCourts();
+      onDataChange?.(); // Update sidebar badges
     } catch (error: any) {
       console.error('Error deleting court:', error);
       toast.error(error.message || "Failed to delete court");
@@ -121,6 +127,7 @@ export const CourtsManagement = () => {
       await toggleCourtStatus(courtId);
       toast.success("Court status updated successfully!");
       loadCourts();
+      onDataChange?.(); // Update sidebar badges
     } catch (error) {
       toast.error("Failed to update court status");
     }

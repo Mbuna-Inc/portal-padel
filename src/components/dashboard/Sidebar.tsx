@@ -20,6 +20,9 @@ import {
   CreditCard,
   BarChart3,
   TrendingUp,
+  DollarSign,
+  Clock,
+  Settings,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -38,7 +41,9 @@ export const Sidebar = ({ user, activeTab, setActiveTab, onLogout, onClose, cour
   const menuItems = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["admin", "cashier"] },
     // Bookings will be handled separately as dropdown
-    { id: "analytics", label: "Analytics", icon: BarChart3, roles: ["admin", "cashier"] },
+    { id: "timeslots", label: "Timeslots", icon: Clock, roles: ["admin"] },
+    { id: "expenses", label: "Expenses", icon: DollarSign, roles: ["admin"] },
+    { id: "analytics", label: "Analytics", icon: BarChart3, roles: ["admin"] },
     { id: "courts", label: "Courts", icon: MapPin, roles: ["admin", "cashier"], badge: courtCount },
     { id: "equipment", label: "Equipment", icon: Package, roles: ["admin", "cashier"], badge: equipmentCount },
     { id: "users", label: "User Management", icon: Users, roles: ["admin"] },
@@ -94,7 +99,7 @@ export const Sidebar = ({ user, activeTab, setActiveTab, onLogout, onClose, cour
             <BookOpen className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-gray-900">CourtFlow</h1>
+            <h1 className="text-xl font-bold text-gray-900">Padle Zone</h1>
             <p className="text-xs text-gray-500">Management Portal</p>
           </div>
         </div>
@@ -159,11 +164,6 @@ export const Sidebar = ({ user, activeTab, setActiveTab, onLogout, onClose, cour
             >
               <Calendar className="mr-3 h-4 w-4 flex-shrink-0" />
               <span className="truncate flex-1 text-left">Bookings</span>
-              {bookingCount > 0 && (
-                <UIBadge className="mr-2 bg-blue-600 text-white rounded-full px-2 py-0.5 text-xs font-bold">
-                  {bookingCount}
-                </UIBadge>
-              )}
               {bookingsExpanded ? (
                 <ChevronDown className="h-4 w-4 flex-shrink-0" />
               ) : (
@@ -195,21 +195,61 @@ export const Sidebar = ({ user, activeTab, setActiveTab, onLogout, onClose, cour
             )}
           </li>
           
-          {/* Analytics */}
-          <li>
-            <Button
-              variant={activeTab === "analytics" ? "secondary" : "ghost"}
-              className={`w-full justify-start ${
-                activeTab === "analytics" 
-                  ? "bg-blue-50 text-blue-700 border-blue-200" 
-                  : "hover:bg-gray-50"
-              }`}
-              onClick={() => handleMenuClick("analytics")}
-            >
-              <BarChart3 className="mr-3 h-4 w-4 flex-shrink-0" />
-              <span className="truncate">Analytics</span>
-            </Button>
-          </li>
+
+          
+          {/* Timeslots (Admin only) */}
+          {user?.role === "admin" && (
+            <li>
+              <Button
+                variant={activeTab === "timeslots" ? "secondary" : "ghost"}
+                className={`w-full justify-start ${
+                  activeTab === "timeslots" 
+                    ? "bg-blue-50 text-blue-700 border-blue-200" 
+                    : "hover:bg-gray-50"
+                }`}
+                onClick={() => handleMenuClick("timeslots")}
+              >
+                <Clock className="mr-3 h-4 w-4 flex-shrink-0" />
+                <span className="truncate">Timeslots</span>
+              </Button>
+            </li>
+          )}
+          
+          {/* Expenses (Admin only) */}
+          {user?.role === "admin" && (
+            <li>
+              <Button
+                variant={activeTab === "expenses" ? "secondary" : "ghost"}
+                className={`w-full justify-start ${
+                  activeTab === "expenses" 
+                    ? "bg-blue-50 text-blue-700 border-blue-200" 
+                    : "hover:bg-gray-50"
+                }`}
+                onClick={() => handleMenuClick("expenses")}
+              >
+                <DollarSign className="mr-3 h-4 w-4 flex-shrink-0" />
+                <span className="truncate">Expenses</span>
+              </Button>
+            </li>
+          )}
+          
+          {/* Analytics (Admin only) */}
+          {user?.role === "admin" && (
+            <li>
+              <Button
+                variant={activeTab === "analytics" ? "secondary" : "ghost"}
+                className={`w-full justify-start ${
+                  activeTab === "analytics" 
+                    ? "bg-blue-50 text-blue-700 border-blue-200" 
+                    : "hover:bg-gray-50"
+                }`}
+                onClick={() => handleMenuClick("analytics")}
+              >
+                <BarChart3 className="mr-3 h-4 w-4 flex-shrink-0" />
+                <span className="truncate">Analytics</span>
+              </Button>
+            </li>
+          )}
           
           {/* Courts */}
           <li>
@@ -224,11 +264,6 @@ export const Sidebar = ({ user, activeTab, setActiveTab, onLogout, onClose, cour
             >
               <MapPin className="mr-3 h-4 w-4 flex-shrink-0" />
               <span className="truncate">Courts</span>
-              {courtCount > 0 && (
-                <UIBadge className="ml-2 bg-blue-600 text-white rounded-full px-2 py-0.5 text-xs font-bold">
-                  {courtCount}
-                </UIBadge>
-              )}
             </Button>
           </li>
           
@@ -245,11 +280,6 @@ export const Sidebar = ({ user, activeTab, setActiveTab, onLogout, onClose, cour
             >
               <Package className="mr-3 h-4 w-4 flex-shrink-0" />
               <span className="truncate">Equipment</span>
-              {equipmentCount > 0 && (
-                <UIBadge className="ml-2 bg-blue-600 text-white rounded-full px-2 py-0.5 text-xs font-bold">
-                  {equipmentCount}
-                </UIBadge>
-              )}
             </Button>
           </li>
           

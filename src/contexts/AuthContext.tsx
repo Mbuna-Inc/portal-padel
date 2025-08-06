@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { toast } from "sonner";
-import { authenticateSystemUser, SystemUser } from "../firebase";
+import { authService, SystemUser } from "../services/authService";
 
 interface AuthContextType {
   user: SystemUser | null;
@@ -26,26 +26,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     // Check for stored user session
-    const storedUser = localStorage.getItem('systemUser');
+    const storedUser = authService.getStoredUser();
     if (storedUser) {
-      try {
-        const userData = JSON.parse(storedUser) as SystemUser;
-        setUser(userData);
-      } catch (error) {
-        console.error('Error parsing stored user:', error);
-        localStorage.removeItem('systemUser');
-      }
+      setUser(storedUser);
     }
     setLoading(false);
   }, []);
 
   const login = async (email: string, password: string) => {
     try {
-      const authenticatedUser = await authenticateSystemUser(email, password);
+      const authenticatedUser = await authService.login(email, password);
       if (authenticatedUser) {
         setUser(authenticatedUser);
-        // Store user session in localStorage
-        localStorage.setItem('systemUser', JSON.stringify(authenticatedUser));
+        authService.storeUser(authenticatedUser);
         toast.success(`Welcome back, ${authenticatedUser.fullName}!`);
       }
     } catch (error: any) {
@@ -56,21 +49,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem('systemUser');
+    authService.logout();
     toast.success('Logged out successfully');
   };
 
   // Role-based access control functions
   const hasRole = (role: 'admin' | 'cashier'): boolean => {
-    return user?.role === role;
+    return authService.hasRole(user, role);
   };
 
   const isAdmin = (): boolean => {
-    return user?.role === 'admin';
+    return authService.isAdmin(user);
   };
 
   const isCashier = (): boolean => {
-    return user?.role === 'cashier';
+    return authService.isCashier(user);
   };
 
   return (

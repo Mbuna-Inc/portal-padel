@@ -27,15 +27,26 @@ export const DashboardContent = ({ user, setActiveTab }: DashboardContentProps) 
   const equipmentSectionRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    apiRequest("/courts").then(data => {
+    apiRequest("/courts/GetAll").then(data => {
       const courts = data.payload || [];
       setActiveCourts(courts.filter((c: any) => c.isActive));
+    }).catch(error => {
+      console.error('Error fetching courts:', error);
+      setActiveCourts([]);
     });
-    apiRequest("/equipment").then(data => {
+    
+    apiRequest("/equipment/GetAll").then(data => {
       setEquipmentList(data.payload || []);
+    }).catch(error => {
+      console.error('Error fetching equipment:', error);
+      setEquipmentList([]);
     });
-    apiRequest("/bookings").then(data => {
+    
+    apiRequest("/employee-bookings/GetAll").then(data => {
       setBookings(data.payload || []);
+    }).catch(error => {
+      console.error('Error fetching bookings:', error);
+      setBookings([]);
     });
   }, []);
 
